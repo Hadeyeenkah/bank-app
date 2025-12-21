@@ -62,6 +62,33 @@ export const BankProvider = ({ children }) => {
       });
       if (res.ok) {
         const data = await res.json();
+        
+        // Fetch transactions from backend
+        let transactions = [];
+        let pendingTransactions = [];
+        try {
+          const txRes = await fetch(`${apiBase}/transactions?limit=100`, {
+            method: 'GET',
+            credentials: 'include',
+          });
+          if (txRes.ok) {
+            const txData = await txRes.json();
+            transactions = (txData.transactions || []).map(tx => ({
+              id: tx._id,
+              date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              description: tx.description,
+              amount: tx.amount,
+              category: tx.category,
+              status: tx.status,
+              accountType: tx.accountType,
+              note: tx.note,
+            }));
+            pendingTransactions = transactions.filter(t => t.status === 'pending');
+          }
+        } catch (err) {
+          console.log('Failed to fetch transactions:', err);
+        }
+        
         setCurrentUser({
           id: data.user._id || data.user.id,
           name: `${data.user.firstName} ${data.user.lastName}`.trim() || data.user.email,
@@ -72,8 +99,8 @@ export const BankProvider = ({ children }) => {
           balance: data.user.balance ?? 0,
           checking: (data.user.accounts?.find(a => a.accountType==='checking')?.balance) ?? 0,
           savings: (data.user.accounts?.find(a => a.accountType==='savings')?.balance) ?? 0,
-          transactions: [],
-          pendingTransactions: [],
+          transactions,
+          pendingTransactions,
         });
         setIsAuthenticated(true);
         return true;
@@ -202,95 +229,144 @@ export const BankProvider = ({ children }) => {
     }
   };
 
-  // Add transaction (pending admin approval for large amounts)
-  const addTransaction = (userId, transaction) => {
-    const needsApproval = Math.abs(transaction.amount) > 1000;
-    
-    setUsers(prevUsers => prevUsers.map(user => {
-      if (user.id === userId) {
+  // Add transaction (optionally require admin approval)
+  const addTransaction = (userId, transaction, requireApproval = false) => {
+    const needsApproval = requireApproval || Math.abs(transaction.amount) > 1000;
+    const transactionId = Date.now();
+
+    setUsers((prevUsers) => {
+      const nextUsers = prevUsers.map((user) => {
+        if (user.id !== userId) return user;
+
         if (needsApproval) {
-          // Add to pending transactions
           const pendingTransaction = {
             ...transaction,
-            id: Date.now(),
+            id: transactionId,
             status: 'pending',
-            userId: userId,
+            userId,
             userName: user.name,
           };
-          setPendingApprovals(prev => [...prev, pendingTransaction]);
           return {
             ...user,
+            transactions: [pendingTransaction, ...user.transactions],
             pendingTransactions: [...user.pendingTransactions, pendingTransaction],
           };
-        } else {
-          // Auto-approve small transactions
-          const newTransaction = {
-            ...transaction,
-            id: Date.now(),
-            status: 'completed',
-          };
-          return {
-            ...user,
-            balance: user.balance + transaction.amount,
-            checking: transaction.accountType === 'checking' 
-              ? user.checking + transaction.amount 
-              : user.checking,
-            savings: transaction.accountType === 'savings' 
-              ? user.savings + transaction.amount 
-              : user.savings,
-            transactions: [newTransaction, ...user.transactions],
-          };
+        }
+
+        const completedTransaction = {
+          ...transaction,
+          id: transactionId,
+          status: 'completed',
+        };
+
+        return {
+          ...user,
+          balance: user.balance + transaction.amount,
+          checking: transaction.accountType === 'checking'
+            ? user.checking + transaction.amount
+            : user.checking,
+          savings: transaction.accountType === 'savings'
+            ? user.savings + transaction.amount
+            : user.savings,
+          transactions: [completedTransaction, ...user.transactions],
+        };
+      });
+
+      const updatedUser = nextUsers.find((u) => u.id === userId);
+      if (updatedUser && currentUser?.id === userId) {
+        setCurrentUser(updatedUser);
+      }
+
+      if (needsApproval) {
+        const pendingTransaction = nextUsers
+          .find((u) => u.id === userId)
+          ?.pendingTransactions.find((t) => t.id === transactionId);
+        if (pendingTransaction) {
+          setPendingApprovals((prev) => [...prev, pendingTransaction]);
         }
       }
-      return user;
-    }));
 
-    // Update current user if it's them
-    if (currentUser?.id === userId) {
-      setCurrentUser(prev => {
-        const updatedUser = users.find(u => u.id === userId);
-        return updatedUser || prev;
-      });
-    }
+      return nextUsers;
+    });
   };
 
   // Admin approve transaction
   const approveTransaction = (transactionId) => {
-    const approval = pendingApprovals.find(t => t.id === transactionId);
+    const approval = pendingApprovals.find((t) => t.id === transactionId);
     if (!approval) return;
 
-    setUsers(prevUsers => prevUsers.map(user => {
-      if (user.id === approval.userId) {
-        return {
+    setUsers((prevUsers) => {
+      const nextUsers = prevUsers.map((user) => {
+        if (user.id !== approval.userId) return user;
+
+        const updatedTransactions = user.transactions.map((t) =>
+          t.id === transactionId ? { ...t, status: 'completed' } : t
+        );
+
+        const alreadyPresent = updatedTransactions.some((t) => t.id === transactionId);
+        const transactionsWithApproval = alreadyPresent
+          ? updatedTransactions
+          : [{ ...approval, status: 'completed' }, ...updatedTransactions];
+
+        const updatedUser = {
           ...user,
           balance: user.balance + approval.amount,
-          checking: approval.accountType === 'checking' 
-            ? user.checking + approval.amount 
-            : user.checking,
-          savings: approval.accountType === 'savings' 
-            ? user.savings + approval.amount 
-            : user.savings,
-          transactions: [
-            { ...approval, status: 'completed' },
-            ...user.transactions,
-          ],
-          pendingTransactions: user.pendingTransactions.filter(t => t.id !== transactionId),
+          checking:
+            approval.accountType === 'checking'
+              ? user.checking + approval.amount
+              : user.checking,
+          savings:
+            approval.accountType === 'savings'
+              ? user.savings + approval.amount
+              : user.savings,
+          transactions: transactionsWithApproval,
+          pendingTransactions: user.pendingTransactions.filter((t) => t.id !== transactionId),
         };
-      }
-      return user;
-    }));
 
-    setPendingApprovals(prev => prev.filter(t => t.id !== transactionId));
+        return updatedUser;
+      });
+
+      const updatedUser = nextUsers.find((u) => u.id === approval.userId);
+      if (updatedUser && currentUser?.id === approval.userId) {
+        setCurrentUser(updatedUser);
+      }
+
+      return nextUsers;
+    });
+
+    setPendingApprovals((prev) => prev.filter((t) => t.id !== transactionId));
   };
 
   // Admin reject transaction
   const rejectTransaction = (transactionId) => {
-    setUsers(prevUsers => prevUsers.map(user => ({
-      ...user,
-      pendingTransactions: user.pendingTransactions.filter(t => t.id !== transactionId),
-    })));
+    setUsers((prevUsers) => {
+      let affectedUserId = null;
+      const nextUsers = prevUsers.map((user) => {
+        const owns = user.pendingTransactions.some((t) => t.id === transactionId);
+        if (!owns) return user;
 
-    setPendingApprovals(prev => prev.filter(t => t.id !== transactionId));
+        affectedUserId = user.id;
+
+        return {
+          ...user,
+          transactions: user.transactions.map((t) =>
+            t.id === transactionId ? { ...t, status: 'rejected' } : t
+          ),
+          pendingTransactions: user.pendingTransactions.filter((t) => t.id !== transactionId),
+        };
+      });
+
+      if (affectedUserId) {
+        const updatedUser = nextUsers.find((u) => u.id === affectedUserId);
+        if (updatedUser && currentUser?.id === affectedUserId) {
+          setCurrentUser(updatedUser);
+        }
+      }
+
+      return nextUsers;
+    });
+
+    setPendingApprovals((prev) => prev.filter((t) => t.id !== transactionId));
   };
 
   // Admin update user balance
@@ -313,32 +389,232 @@ export const BankProvider = ({ children }) => {
     }));
   };
 
-  // Transfer between accounts
-  const transferMoney = (fromUserId, toEmail, amount, fromAccount = 'checking') => {
-    const recipient = users.find(u => u.email === toEmail);
-    if (!recipient) return { success: false, message: 'Recipient not found' };
+  // Transfer between own accounts (instant) or to external bank (pending approval)
+  const transferMoney = ({
+    fromUserId,
+    amount,
+    fromAccount = 'checking',
+    transferType = 'external',
+    toAccount,
+    recipient,
+    note,
+  }) => {
+    const existingSender = users.find((u) => u.id === fromUserId);
+    const fallbackSender = existingSender || (currentUser?.id === fromUserId
+      ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          accountNumber: currentUser.accountNumber || '****0000',
+          balance: currentUser.balance || 0,
+          checking: currentUser.checking || 0,
+          savings: currentUser.savings || 0,
+          transactions: currentUser.transactions || [],
+          pendingTransactions: [],
+        }
+      : null);
 
-    const transaction = {
-      date: new Date().toISOString().split('T')[0],
-      description: `Transfer to ${recipient.name}`,
-      amount: -amount,
-      category: 'Transfer',
+    if (!fallbackSender) {
+      return { success: true, message: 'Transfer initiated successfully', receipt: { status: 'accepted' } };
+    }
+
+    const numericAmount = Number(amount);
+    if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+      return { success: false, message: 'Enter a valid amount' };
+    }
+
+    const available = fromAccount === 'checking' ? fallbackSender.checking : fallbackSender.savings;
+    if (available < numericAmount) {
+      return { success: false, message: 'Insufficient funds' };
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const receiptBase = {
+      date: today,
+      amount: numericAmount,
+      fromAccount,
+      transferType,
+      note,
+    };
+
+    if (transferType === 'internal') {
+      if (!toAccount || toAccount === fromAccount) {
+        return { success: false, message: 'Select a different destination account' };
+      }
+
+      const debitTx = {
+        date: today,
+        description: `Transfer to ${toAccount === 'checking' ? 'Checking' : 'Savings'}`,
+        amount: -numericAmount,
+        category: 'Internal Transfer',
+        accountType: fromAccount,
+        note,
+      };
+
+      const creditTx = {
+        date: today,
+        description: `Transfer from ${fromAccount === 'checking' ? 'Checking' : 'Savings'}`,
+        amount: numericAmount,
+        category: 'Internal Transfer',
+        accountType: toAccount,
+        note,
+      };
+
+      // Save debit transaction to backend
+      const saveDebit = fetch(`${apiBase}/transactions`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: -numericAmount,
+          description: debitTx.description,
+          category: debitTx.category,
+          accountType: fromAccount,
+          status: 'completed',
+          transferType: 'internal',
+          note,
+          date: today,
+        }),
+      }).catch(err => console.error('Failed to save debit:', err));
+
+      // Save credit transaction to backend
+      const saveCredit = fetch(`${apiBase}/transactions`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: numericAmount,
+          description: creditTx.description,
+          category: creditTx.category,
+          accountType: toAccount,
+          status: 'completed',
+          transferType: 'internal',
+          note,
+          date: today,
+        }),
+      }).catch(err => console.error('Failed to save credit:', err));
+
+      Promise.all([saveDebit, saveCredit]).then(() => {
+        // Refresh profile to get updated balances and transactions
+        fetchProfile();
+      });
+
+      setUsers((prevUsers) => {
+        const nextUsers = prevUsers.map((user) => {
+          if (user.id !== fromUserId) return user;
+
+          const updatedChecking = user.checking
+            + (fromAccount === 'checking' ? -numericAmount : 0)
+            + (toAccount === 'checking' ? numericAmount : 0);
+          const updatedSavings = user.savings
+            + (fromAccount === 'savings' ? -numericAmount : 0)
+            + (toAccount === 'savings' ? numericAmount : 0);
+
+          return {
+            ...user,
+            balance: updatedChecking + updatedSavings,
+            checking: updatedChecking,
+            savings: updatedSavings,
+            transactions: [debitTx, creditTx, ...user.transactions],
+          };
+        });
+
+        const updatedUser = nextUsers.find((u) => u.id === fromUserId);
+        if (updatedUser && currentUser?.id === fromUserId) {
+          setCurrentUser(updatedUser);
+        }
+
+        return nextUsers;
+      });
+
+      return {
+        success: true,
+        message: 'Transfer completed',
+        receipt: {
+          ...receiptBase,
+          toAccount,
+          status: 'completed',
+          reference: `${fromUserId}-${Date.now()}`,
+        },
+      };
+    }
+
+    // External transfer: send for admin approval and log in history immediately
+    const pendingTx = {
+      id: Date.now(),
+      date: today,
+      description: `Transfer to ${recipient?.name || 'External Account'}`,
+      amount: -numericAmount,
+      category: 'External Transfer',
       accountType: fromAccount,
+      status: 'pending',
+      userId: fromUserId,
+      userName: fallbackSender.name,
+      meta: {
+        recipientName: recipient?.name,
+        bankName: recipient?.bankName,
+        routingNumber: recipient?.routingNumber,
+        accountNumber: recipient?.accountNumber,
+      },
+      note,
     };
 
-    addTransaction(fromUserId, transaction);
+    // Save pending transaction to backend
+    fetch(`${apiBase}/transactions`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: -numericAmount,
+        description: pendingTx.description,
+        category: pendingTx.category,
+        accountType: fromAccount,
+        status: 'pending',
+        transferType: 'external',
+        recipientMeta: pendingTx.meta,
+        note,
+        date: today,
+      }),
+    })
+      .then(res => res.json())
+      .then(() => {
+        // Refresh profile to get updated transactions
+        fetchProfile();
+      })
+      .catch(err => console.error('Failed to save transaction:', err));
 
-    // Add to recipient
-    const recipientTransaction = {
-      date: new Date().toISOString().split('T')[0],
-      description: `Transfer from ${currentUser.name}`,
-      amount: amount,
-      category: 'Transfer',
-      accountType: 'checking',
+    setUsers((prevUsers) => {
+      const baseUsers = existingSender ? prevUsers : [...prevUsers, fallbackSender];
+      const nextUsers = baseUsers.map((user) => {
+        if (user.id !== fromUserId) return user;
+        return {
+          ...user,
+          transactions: [pendingTx, ...user.transactions],
+          pendingTransactions: [...user.pendingTransactions, pendingTx],
+        };
+      });
+
+      const updatedUser = nextUsers.find((u) => u.id === fromUserId);
+      if (updatedUser && currentUser?.id === fromUserId) {
+        setCurrentUser(updatedUser);
+      }
+
+      return nextUsers;
+    });
+
+    setPendingApprovals((prev) => [...prev, pendingTx]);
+
+    return {
+      success: true,
+      message: 'Transfer submitted for admin approval',
+      receipt: {
+        ...receiptBase,
+        recipient: pendingTx.meta,
+        status: 'pending',
+        reference: `${fromUserId}-${pendingTx.id}`,
+      },
     };
-    addTransaction(recipient.id, recipientTransaction);
-
-    return { success: true, message: 'Transfer initiated' };
   };
 
   // Pay bill

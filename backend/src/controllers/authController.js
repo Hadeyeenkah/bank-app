@@ -200,7 +200,14 @@ exports.updateProfile = async (req, res) => {
   try {
     const { firstName, lastName, phone, avatarUrl, email } = req.body;
 
-    const updateData = { firstName, lastName, phone, avatarUrl };
+    // Only persist fields that were explicitly sent, so an email-only update
+    // does not accidentally wipe the stored avatar or names.
+    const updateData = {};
+    ['firstName', 'lastName', 'phone', 'avatarUrl'].forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
 
     // Handle email change with uniqueness check
     if (email) {

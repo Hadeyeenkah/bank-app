@@ -12,6 +12,7 @@ import DepositPage from './pages/DepositPage';
 import CardsPage from './pages/CardsPage';
 import SecurityPage from './pages/SecurityPage';
 import NotificationsPage from './pages/NotificationsPage';
+import AuroraBankLogo from './components/AuroraBankLogo';
 import './App.css';
 
 const stats = [
@@ -89,8 +90,10 @@ function HomePage() {
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 gradient-veil" />
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-cyan-400/20 ring-1 ring-cyan-400/40" />
+          <div className="flex items-center gap-3">
+            <div className="text-cyan-400">
+              <AuroraBankLogo />
+            </div>
             <span className="text-lg font-semibold tracking-tight">Aurora Bank</span>
           </div>
           <nav className="hidden items-center gap-6 text-sm text-slate-200 md:flex">

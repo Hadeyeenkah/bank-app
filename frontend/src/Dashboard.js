@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useBankContext } from './context/BankContext';
+import AuroraBankLogo from './components/AuroraBankLogo';
 import './App.css';
 
 function Dashboard() {
   const { currentUser, logout, updateProfile } = useBankContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -92,6 +94,17 @@ function Dashboard() {
     };
   }, []);
 
+  // Handle flash notification coming from navigation state (e.g., transfer success)
+  useEffect(() => {
+    const flash = location.state?.notification;
+    if (!flash) return;
+    setNotifications((prev) => {
+      const nextId = (prev[0]?.id || 0) + 1;
+      return [{ id: nextId, ...flash }, ...prev].slice(0, 10);
+    });
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate]);
+
   if (!currentUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
@@ -164,9 +177,9 @@ function Dashboard() {
       <header className="border-b border-white/5 bg-slate-900/50 backdrop-blur relative z-30">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-xl bg-cyan-400/20 ring-1 ring-cyan-400/40" />
-              <span className="text-lg font-semibold tracking-tight">Aurora Bank</span>
+            <div className="flex items-center gap-3 text-cyan-400">
+              <AuroraBankLogo />
+              <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank</span>
             </div>
             
           </div>
@@ -218,9 +231,17 @@ function Dashboard() {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-3 transition hover:opacity-80"
               >
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Profile avatar"
+                    className="h-10 w-10 rounded-full object-cover border border-white/10"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="hidden md:block">
                   <div className="text-sm font-semibold text-white">{user.name}</div>
                   <div className="text-xs text-slate-400">{user.accountNumber}</div>
@@ -232,9 +253,17 @@ function Dashboard() {
                 <div className="absolute right-0 mt-2 w-64 rounded-xl border border-white/10 bg-slate-900 shadow-2xl z-50">
                   <div className="border-b border-white/10 p-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold text-lg">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt="Profile avatar"
+                          className="h-12 w-12 rounded-full object-cover border border-white/10"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold text-lg">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <div className="font-semibold text-white">{user.name}</div>
                         <div className="text-xs text-slate-400">{user.email}</div>
@@ -366,7 +395,11 @@ function Dashboard() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-white">{transaction.description}</div>
-                      <div className="text-xs text-slate-400">{transaction.date} • {transaction.category}</div>
+                      <div className="text-xs text-slate-400">
+                        {transaction.date} • {transaction.category}
+                        {transaction.status === 'pending' && ' • Pending approval'}
+                        {transaction.status === 'rejected' && ' • Rejected'}
+                      </div>
                     </div>
                   </div>
                   <div className={`text-lg font-semibold ${transaction.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>

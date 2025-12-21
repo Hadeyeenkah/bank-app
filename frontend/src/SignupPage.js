@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBankContext } from './context/BankContext';
+import AuroraBankLogo from './components/AuroraBankLogo';
 import './App.css';
 
 function SignupPage() {
@@ -46,9 +47,9 @@ function SignupPage() {
       <div className="absolute inset-0 -z-10 gradient-veil" />
 
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-xl bg-cyan-400/20 ring-1 ring-cyan-400/40" />
-          <span className="text-lg font-semibold tracking-tight">Aurora Bank</span>
+        <div className="flex items-center gap-3 text-cyan-400">
+          <AuroraBankLogo />
+          <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank</span>
         </div>
         <Link to="/" className="rounded-full border border-cyan-300/50 px-4 py-2 text-sm text-cyan-50 hover:border-cyan-200 hover:text-white">
           ← Back to home
