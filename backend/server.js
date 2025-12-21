@@ -15,7 +15,7 @@ const app = express();
 // Security headers
 app.use(helmet());
 
-// CORS with credentials for frontend. Supports comma-separated origins for prod/local.
+// CORS Configuration
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:3000")
   .split(',')
   .map((o) => o.trim())
@@ -26,42 +26,96 @@ console.log('🔒 CORS allowed origins:', allowedOrigins);
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow same-origin/non-browser
-      const allowed = allowedOrigins.includes(origin);
-      if (!allowed) {
+      // Allow requests with no origin (mobile apps, Postman, curl, same-origin)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        console.log('✅ CORS allowed origin:', origin);
+        callback(null, true);
+      } else {
         console.log('❌ CORS blocked origin:', origin);
+        callback(new Error(`CORS policy: Origin ${origin} not allowed`));
       }
-      return allowed ? callback(null, true) : callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   })
 );
 
 // Parsers
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Basic rate limiting
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 200 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
-// Health check
+// Health check endpoint
 app.get("/", (req, res) => {
-  res.send("SecureBank API running...");
+  res.json({
+    status: "success",
+    message: "SecureBank API is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
-// Routes
+// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 
-const PORT = process.env.PORT || 5000;
-
-// Start server immediately, connect to DB in background
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  connectDB(); // Non-blocking
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: "error",
+    message: "Route not found"
+  });
 });
 
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.message);
+  
+  // CORS errors
+  if (err.message.includes('CORS')) {
+    return res.status(403).json({
+      status: "error",
+      message: "CORS policy violation",
+      details: err.message
+    });
+  }
+  
+  // General errors
+  res.status(err.status || 500).json({
+    status: "error",
+    message: err.message || "Internal server error"
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  connectDB(); // Connect to database
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('👋 SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('👋 SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
