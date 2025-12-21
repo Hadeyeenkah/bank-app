@@ -139,46 +139,103 @@ function HomePage() {
             </div>
 
             <div className="relative">
-              <div className="card-grid">
-                <div className="card primary">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-cyan-100">Balance</p>
-                      <p className="mt-2 text-3xl font-semibold text-white">$48,920.15</p>
-                    </div>
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-cyan-50">Premium</span>
+              {/* Phone mockup with app interface */}
+              <div className="relative mx-auto max-w-sm">
+                <div className="relative z-10 overflow-hidden rounded-[2.5rem] border-8 border-slate-800 bg-slate-900 shadow-2xl">
+                  <div className="h-6 bg-slate-900 flex items-center justify-center gap-2">
+                    <div className="h-1 w-16 rounded-full bg-slate-700" />
                   </div>
-                  <div className="mt-6 space-y-2 text-sm text-slate-200">
-                    <div className="flex justify-between">
-                      <span>Checking</span>
-                      <span>$18,400.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Savings</span>
-                      <span>$30,520.15</span>
-                    </div>
-                  </div>
-                  <button className="mt-6 w-full rounded-xl bg-white text-slate-900 py-3 text-sm font-semibold hover:bg-slate-100">
-                    Transfer Now
-                  </button>
-                </div>
-                <div className="card secondary">
-                  <p className="text-sm text-slate-200">Spending This Week</p>
-                  <p className="mt-3 text-2xl font-semibold text-white">$1,240</p>
-                  <div className="mt-6 space-y-3">
-                    {[['Groceries', 60], ['Transport', 35], ['Dining', 50]].map(([label, width]) => (
-                      <div key={label}>
-                        <div className="flex justify-between text-xs text-slate-300">
-                          <span>{label}</span>
-                          <span>{width}%</span>
+                  <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 pb-8">
+                    {/* Credit Card Visual */}
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 p-6 shadow-2xl mb-4">
+                      <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+                      <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-8">
+                          <svg className="w-10 h-10 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                            <rect width="18" height="14" x="3" y="5" rx="2" />
+                            <path d="M3 10h18" stroke="currentColor" strokeWidth="2" fill="none"/>
+                          </svg>
+                          <span className="text-white/90 font-bold text-sm">VISA</span>
                         </div>
-                        <div className="mt-1 h-2 rounded-full bg-white/10">
-                          <div className="h-full rounded-full bg-cyan-300" style={{ width: `${width}%` }} />
+                        <div className="space-y-2">
+                          <div className="text-white font-mono text-lg tracking-wider">
+                            •••• •••• •••• 8492
+                          </div>
+                          <div className="flex justify-between text-white/90 text-xs">
+                            <span>AURORA PREMIUM</span>
+                            <span>12/26</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Account Balance Card */}
+                    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 mb-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-slate-400">Total Balance</p>
+                          <p className="mt-1 text-3xl font-bold text-white">$48,920.15</p>
+                        </div>
+                        <div className="rounded-full bg-green-500/20 px-3 py-1">
+                          <span className="text-green-400 text-xs font-semibold">+12.5%</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                        <div>
+                          <p className="text-xs text-slate-400">Checking</p>
+                          <p className="text-white font-semibold">$18,400</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400">Savings</p>
+                          <p className="text-white font-semibold">$30,520</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="grid grid-cols-4 gap-3 mb-4">
+                      {[
+                        { icon: '↗', label: 'Send', color: 'cyan' },
+                        { icon: '↙', label: 'Request', color: 'purple' },
+                        { icon: '💳', label: 'Cards', color: 'blue' },
+                        { icon: '📊', label: 'Stats', color: 'green' }
+                      ].map((action) => (
+                        <div key={action.label} className="text-center">
+                          <div className={`mx-auto w-12 h-12 rounded-xl bg-${action.color}-500/20 flex items-center justify-center mb-1 text-lg`}>
+                            {action.icon}
+                          </div>
+                          <p className="text-xs text-slate-400">{action.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Recent Transactions */}
+                    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-4">
+                      <p className="text-xs text-slate-400 mb-3">Recent Activity</p>
+                      <div className="space-y-3">
+                        {[
+                          { icon: '🛒', name: 'Whole Foods', amount: '-$84.32', color: 'red' },
+                          { icon: '💰', name: 'Salary Deposit', amount: '+$3,200', color: 'green' },
+                          { icon: '☕', name: 'Starbucks', amount: '-$5.40', color: 'red' }
+                        ].map((tx, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
+                                {tx.icon}
+                              </div>
+                              <span className="text-sm text-white">{tx.name}</span>
+                            </div>
+                            <span className={`text-sm font-semibold ${tx.color === 'green' ? 'text-green-400' : 'text-red-400'}`}>
+                              {tx.amount}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
+                {/* Phone shadow */}
+                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 blur-3xl" />
               </div>
             </div>
           </div>
@@ -195,16 +252,32 @@ function HomePage() {
             <a className="text-sm text-cyan-200 hover:text-cyan-100" href="#">See all</a>
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {products.map((product) => (
-              <div key={product.title} className="group rounded-2xl border border-white/5 bg-white/5 p-6 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200/50">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-300/20 text-cyan-100">→</div>
-                <h3 className="mt-4 text-xl font-semibold text-white">{product.title}</h3>
-                <p className="mt-2 text-sm text-slate-300">{product.desc}</p>
-                <button className="mt-4 text-sm font-semibold text-cyan-200 transition group-hover:text-cyan-100">
-                  {product.cta}
-                </button>
-              </div>
-            ))}
+            {products.map((product, index) => {
+              const icons = [
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>,
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>,
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ];
+              return (
+                <div key={product.title} className="group rounded-2xl border border-white/5 bg-white/5 p-6 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200/50 hover:bg-white/10">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-300">
+                    {icons[index]}
+                  </div>
+                  <h3 className="mt-4 text-xl font-semibold text-white">{product.title}</h3>
+                  <p className="mt-2 text-sm text-slate-300">{product.desc}</p>
+                  <button className="mt-4 text-sm font-semibold text-cyan-200 transition group-hover:text-cyan-100 flex items-center gap-2">
+                    {product.cta}
+                    <span>→</span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -221,12 +294,28 @@ function HomePage() {
               <button className="rounded-full border border-cyan-200/40 px-5 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-200">Security Whitepaper</button>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
-              {features.map((feature) => (
-                <div key={feature.title} className="rounded-2xl border border-white/5 bg-white/5 p-6">
-                  <div className="text-sm uppercase tracking-[0.2em] text-cyan-200">{feature.title}</div>
-                  <p className="mt-3 text-sm text-slate-200">{feature.desc}</p>
-                </div>
-              ))}
+              {features.map((feature, index) => {
+                const icons = [
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>,
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>,
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                  </svg>
+                ];
+                return (
+                  <div key={feature.title} className="rounded-2xl border border-white/5 bg-white/5 p-6 hover:bg-white/10 transition">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-cyan-300 mb-4">
+                      {icons[index]}
+                    </div>
+                    <div className="text-sm uppercase tracking-[0.2em] text-cyan-200 font-semibold">{feature.title}</div>
+                    <p className="mt-3 text-sm text-slate-200">{feature.desc}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -257,11 +346,16 @@ function HomePage() {
       <footer className="border-t border-white/5 bg-slate-950 py-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl bg-cyan-400/20 ring-1 ring-cyan-400/40" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
               <span className="text-lg font-semibold tracking-tight text-white">Aurora Bank</span>
             </div>
             <p className="mt-2 text-sm text-slate-400">FDIC insured up to $250,000 per depositor.</p>
+            <p className="mt-1 text-xs text-slate-500">© 2025 Aurora Bank. All rights reserved.</p>
           </div>
           <div className="flex flex-wrap gap-4 text-sm text-slate-300">
             <a className="hover:text-white" href="#products">Products</a>
