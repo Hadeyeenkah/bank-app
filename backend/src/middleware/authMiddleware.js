@@ -22,7 +22,36 @@ exports.protect = (req, res, next) => {
 		req.userId = decoded.userId;
 		next();
 	} catch (err) {
-		return res.status(401).json({ message: 'Invalid or expired token' });
+		// If token is expired, try to refresh it
+		if (err.name === 'TokenExpiredError') {
+			const refreshToken = req.cookies?.refreshToken;
+			if (!refreshToken) {
+				return res.status(401).json({ message: 'Session expired. Please log in again.' });
+			}
+			
+			try {
+				const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+				const { generateTokens } = require('../utils/tokenUtils');
+				const { accessToken: newAccessToken } = generateTokens(decoded.userId);
+				
+				// Set new access token cookie
+				const isProd = process.env.NODE_ENV === 'production';
+				res.cookie('accessToken', newAccessToken, {
+					httpOnly: true,
+					secure: isProd,
+					sameSite: isProd ? 'none' : 'lax',
+					maxAge: 15 * 60 * 1000,
+					path: '/',
+				});
+				
+				req.userId = decoded.userId;
+				next();
+			} catch (refreshErr) {
+				return res.status(401).json({ message: 'Session expired. Please log in again.' });
+			}
+		} else {
+			return res.status(401).json({ message: 'Invalid or expired token' });
+		}
 	}
 };
 

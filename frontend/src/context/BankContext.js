@@ -14,6 +14,7 @@ export const BankProvider = ({ children }) => {
   // Current logged-in user
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   // All users data
   const [users, setUsers] = useState([
@@ -116,13 +117,14 @@ export const BankProvider = ({ children }) => {
     }
   };
 
-  // Initialize auth on mount
+  // Initialize auth on mount - check if user has an active session
   useEffect(() => {
-    const hasSession = typeof window !== 'undefined' && localStorage.getItem('hasSession') === 'true';
-    if (hasSession) {
-      fetchProfile();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const initializeAuth = async () => {
+      setIsInitializing(true);
+      await fetchProfile();
+      setIsInitializing(false);
+    };
+    initializeAuth();
   }, []);
 
   // Login function via backend
@@ -139,9 +141,6 @@ export const BankProvider = ({ children }) => {
         return { success: false, message: errorData.message || 'Login failed' };
       }
       await fetchProfile();
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('hasSession', 'true');
-      }
       return { success: true };
     } catch {
       return { success: false, message: 'Network error. Please try again.' };
@@ -177,9 +176,6 @@ export const BankProvider = ({ children }) => {
 
       // Server now sets auth cookies on register; fetch profile to hydrate state.
       await fetchProfile();
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('hasSession', 'true');
-      }
 
       return { success: true, message: data.message, verificationLink: data.verificationLink };
     } catch (err) {
@@ -197,9 +193,6 @@ export const BankProvider = ({ children }) => {
     } catch {}
     setCurrentUser(null);
     setIsAuthenticated(false);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('hasSession');
-    }
   };
 
   // Update profile
@@ -632,6 +625,7 @@ export const BankProvider = ({ children }) => {
   const value = {
     currentUser,
     isAuthenticated,
+    isInitializing,
     users,
     pendingApprovals,
     login,

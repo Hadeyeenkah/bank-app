@@ -77,7 +77,15 @@ function App() {
 }
 
 function RequireAuth({ children }) {
-  const { isAuthenticated } = useBankContext();
+  const { isAuthenticated, isInitializing } = useBankContext();
+  
+  // Show nothing while checking auth status
+  if (isInitializing) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="text-slate-400">Loading...</div>
+    </div>;
+  }
+  
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
