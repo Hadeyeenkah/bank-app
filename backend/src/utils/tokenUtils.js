@@ -15,19 +15,21 @@ exports.generateTokens = (userId) => {
 exports.setAuthCookies = (res, { accessToken, refreshToken }) => {
 	const isProd = process.env.NODE_ENV === 'production';
 
-	res.cookie('accessToken', accessToken, {
+	// For cross-origin (different domains), need sameSite: 'none' and secure: true
+	const cookieOptions = {
 		httpOnly: true,
-		secure: isProd,
-		sameSite: 'lax',
-		maxAge: 15 * 60 * 1000,
+		secure: isProd, // true in production (HTTPS required)
+		sameSite: isProd ? 'none' : 'lax', // 'none' for cross-origin cookies in production
 		path: '/',
+	};
+
+	res.cookie('accessToken', accessToken, {
+		...cookieOptions,
+		maxAge: 15 * 60 * 1000, // 15 minutes
 	});
 
 	res.cookie('refreshToken', refreshToken, {
-		httpOnly: true,
-		secure: isProd,
-		sameSite: 'lax',
-		maxAge: 7 * 24 * 60 * 60 * 1000,
-		path: '/',
+		...cookieOptions,
+		maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 	});
 };
