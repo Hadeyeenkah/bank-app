@@ -16,10 +16,11 @@ exports.setAuthCookies = (res, { accessToken, refreshToken }) => {
 	const isProd = process.env.NODE_ENV === 'production';
 
 	// For cross-origin (different domains), need sameSite: 'none' and secure: true
+	// However, for development/mobile, we use 'none' with secure flag conditionally
 	const cookieOptions = {
 		httpOnly: true,
-		secure: isProd, // true in production (HTTPS required)
-		sameSite: isProd ? 'none' : 'lax', // 'none' for cross-origin cookies in production
+		secure: isProd || process.env.FORCE_SECURE_COOKIES === 'true', // true in production or when explicitly set
+		sameSite: 'none', // Allow cross-origin cookies (needed for mobile, different domains, etc.)
 		path: '/',
 	};
 

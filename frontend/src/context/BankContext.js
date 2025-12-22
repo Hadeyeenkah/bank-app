@@ -131,20 +131,32 @@ export const BankProvider = ({ children }) => {
   // Login function via backend
   const login = async (email, password) => {
     try {
+      console.log('🔐 Login attempt:', email);
       const res = await fetch(`${apiBase}/auth/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      
+      console.log('📡 Login response status:', res.status);
+      console.log('🍪 Response headers:', Array.from(res.headers.entries()));
+      
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        console.error('❌ Login failed:', errorData);
         return { success: false, message: errorData.message || 'Login failed' };
       }
+      
       const data = await res.json();
+      console.log('✅ Login successful, fetching profile...');
+      
       await fetchProfile();
+      console.log('✅ Profile fetched, user authenticated');
+      
       return { success: true, user: data.user };
-    } catch {
+    } catch (err) {
+      console.error('❌ Login error:', err);
       return { success: false, message: 'Network error. Please try again.' };
     }
   };
