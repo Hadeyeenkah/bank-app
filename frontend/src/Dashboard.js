@@ -124,6 +124,7 @@ function Dashboard() {
 
   const quickActions = [
     { title: 'Transfer Money', icon: '→', link: '/transfer' },
+    { title: 'Wire Transfer', icon: '🌐', link: '/wire-transfer' },
     { title: 'Pay Bills', icon: '💳', link: '/bills' },
     { title: 'Deposit Check', icon: '📄', link: '/deposit' },
     { title: 'Card Controls', icon: '🔒', link: '/cards' },

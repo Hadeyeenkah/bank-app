@@ -5,6 +5,7 @@ import LoginPage from './LoginPage';
 import SignupPage from './SignupPage';
 import Dashboard from './Dashboard';
 import TransferPage from './pages/TransferPage';
+import WireTransferPage from './pages/WireTransferPage';
 import BillsPage from './pages/BillsPage';
 import TransactionsPage from './pages/TransactionsPage';
 import AdminPage from './pages/AdminPage';
@@ -64,6 +65,7 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/transfer" element={<RequireAuth><TransferPage /></RequireAuth>} />
+        <Route path="/wire-transfer" element={<RequireAuth><WireTransferPage /></RequireAuth>} />
         <Route path="/bills" element={<RequireAuth><BillsPage /></RequireAuth>} />
         <Route path="/transactions" element={<RequireAuth><TransactionsPage /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />

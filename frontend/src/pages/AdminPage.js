@@ -1,21 +1,115 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useBankContext } from '../context/BankContext';
 import AuroraBankLogo from '../components/AuroraBankLogo';
 import '../App.css';
 
 function AdminPage() {
-  const { users, pendingApprovals, approveTransaction, rejectTransaction, updateUserBalance } = useBankContext();
+  const navigate = useNavigate();
+  const { logout } = useBankContext();
   const [activeTab, setActiveTab] = useState('users');
   const [editingUser, setEditingUser] = useState(null);
   const [editValues, setEditValues] = useState({});
+  const [displayUsers, setDisplayUsers] = useState([]);
+  const [displayPendingApprovals, setDisplayPendingApprovals] = useState([]);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [loading, setLoading] = useState(true);
 
-  const handleApprove = (transactionId) => {
-    approveTransaction(transactionId);
+  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
+
+  // Fetch admin data in real-time
+  const fetchAdminData = async () => {
+    try {
+      console.log('Fetching admin data...');
+      
+      // Fetch all users
+      const usersRes = await fetch(`${apiBase}/admin/users`, {
+        credentials: 'include',
+      });
+      
+      console.log('Users response status:', usersRes.status);
+      
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        console.log('Users data received:', usersData);
+        setDisplayUsers(usersData.users || []);
+      } else if (usersRes.status === 401 || usersRes.status === 403) {
+        console.error('Unauthorized - redirecting to login');
+        // Not authorized, redirect to login
+        logout();
+        navigate('/login');
+        return;
+      } else {
+        const errorData = await usersRes.json().catch(() => ({}));
+        console.error('Failed to fetch users:', errorData);
+      }
+
+      // Fetch pending approvals
+      const approvalsRes = await fetch(`${apiBase}/admin/pending-approvals`, {
+        credentials: 'include',
+      });
+      
+      console.log('Approvals response status:', approvalsRes.status);
+      
+      if (approvalsRes.ok) {
+        const approvalsData = await approvalsRes.json();
+        console.log('Approvals data received:', approvalsData);
+        setDisplayPendingApprovals(approvalsData.pendingApprovals || []);
+      }
+
+      setLastUpdate(new Date());
+      setLoading(false);
+    } catch (err) {
+      console.error('Failed to fetch admin data:', err);
+      setLoading(false);
+    }
   };
 
-  const handleReject = (transactionId) => {
-    rejectTransaction(transactionId);
+  useEffect(() => {
+    // Fetch immediately
+    fetchAdminData();
+
+    // Set up interval for real-time updates (every 5 seconds)
+    const interval = setInterval(fetchAdminData, 5000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleApprove = async (transactionId) => {
+    try {
+      const res = await fetch(`${apiBase}/transactions/${transactionId}/approve`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        // Refresh data immediately
+        await fetchAdminData();
+      } else {
+        alert('Failed to approve transaction');
+      }
+    } catch (err) {
+      console.error('Approve error:', err);
+      alert('Error approving transaction');
+    }
+  };
+
+  const handleReject = async (transactionId) => {
+    try {
+      const res = await fetch(`${apiBase}/transactions/${transactionId}/reject`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        // Refresh data immediately
+        await fetchAdminData();
+      } else {
+        alert('Failed to reject transaction');
+      }
+    } catch (err) {
+      console.error('Reject error:', err);
+      alert('Error rejecting transaction');
+    }
   };
 
   const handleEdit = (user) => {
@@ -26,14 +120,36 @@ function AdminPage() {
     });
   };
 
-  const handleSave = (userId) => {
-    updateUserBalance(userId, 'checking', parseFloat(editValues.checking));
-    updateUserBalance(userId, 'savings', parseFloat(editValues.savings));
-    setEditingUser(null);
+  const handleSave = async (userId) => {
+    try {
+      const res = await fetch(`${apiBase}/admin/users/${userId}/balance`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checking: parseFloat(editValues.checking),
+          savings: parseFloat(editValues.savings),
+        }),
+      });
+
+      if (res.ok) {
+        setEditingUser(null);
+        // Refresh data immediately
+        await fetchAdminData();
+      } else {
+        const error = await res.json();
+        alert(`Failed to update balance: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Error updating balance');
+    }
   };
 
-  const totalSystemBalance = users.reduce((sum, user) => sum + user.balance, 0);
-  const totalTransactions = users.reduce((sum, user) => sum + user.transactions.length, 0);
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -43,33 +159,41 @@ function AdminPage() {
             <AuroraBankLogo />
             <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank</span>
           </div>
-          <Link to="/" className="text-sm text-cyan-200 hover:text-white">
+          <button
+            onClick={handleLogout}
+            className="text-sm text-cyan-200 hover:text-white"
+          >
             Logout
-          </Link>
+          </button>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         <h1 className="mb-2 text-3xl font-semibold text-white">Admin Dashboard</h1>
-        <p className="mb-8 text-slate-300">Manage users, approve transactions, and monitor system activity</p>
+        <p className="mb-8 flex items-center justify-between text-slate-300">
+          <span>Manage users, approve transactions, and monitor system activity</span>
+          <span className="text-xs text-cyan-400">
+            {loading ? 'Loading...' : `Last updated: ${lastUpdate.toLocaleTimeString()}`}
+          </span>
+        </p>
 
         {/* Stats Overview */}
         <div className="mb-8 grid gap-6 md:grid-cols-4">
           <div className="card secondary">
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Total Users</p>
-            <p className="mt-2 text-3xl font-semibold text-white">{users.length}</p>
+            <p className="mt-2 text-3xl font-semibold text-white">{displayUsers.length}</p>
           </div>
           <div className="card secondary">
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">System Balance</p>
-            <p className="mt-2 text-3xl font-semibold text-white">${totalSystemBalance.toFixed(2)}</p>
+            <p className="mt-2 text-3xl font-semibold text-white">${displayUsers.reduce((sum, user) => sum + user.balance, 0).toFixed(2)}</p>
           </div>
           <div className="card secondary">
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Pending Approvals</p>
-            <p className="mt-2 text-3xl font-semibold text-yellow-400">{pendingApprovals.length}</p>
+            <p className="mt-2 text-3xl font-semibold text-yellow-400">{displayPendingApprovals.length}</p>
           </div>
           <div className="card secondary">
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Total Transactions</p>
-            <p className="mt-2 text-3xl font-semibold text-white">{totalTransactions}</p>
+            <p className="mt-2 text-3xl font-semibold text-white">{displayUsers.reduce((sum, user) => sum + (user.transactions?.length || 0), 0)}</p>
           </div>
         </div>
 
@@ -85,7 +209,7 @@ function AdminPage() {
             onClick={() => setActiveTab('approvals')}
             className={`pb-3 text-sm font-semibold transition ${activeTab === 'approvals' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
           >
-            Pending Approvals {pendingApprovals.length > 0 && `(${pendingApprovals.length})`}
+            Pending Approvals {displayPendingApprovals.length > 0 && `(${displayPendingApprovals.length})`}
           </button>
           <button
             onClick={() => setActiveTab('activity')}
@@ -99,8 +223,13 @@ function AdminPage() {
         {activeTab === 'users' && (
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
             <h2 className="mb-6 text-xl font-semibold text-white">All Users</h2>
-            <div className="space-y-4">
-              {users.map((user) => (
+            {loading ? (
+              <p className="py-8 text-center text-slate-400">Loading users...</p>
+            ) : displayUsers.length === 0 ? (
+              <p className="py-8 text-center text-slate-400">No users found. Please register users first.</p>
+            ) : (
+              <div className="space-y-4">
+                {displayUsers.map((user) => (
                 <div
                   key={user.id}
                   className="rounded-xl border border-white/5 bg-white/5 p-6"
@@ -189,6 +318,7 @@ function AdminPage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -196,11 +326,11 @@ function AdminPage() {
         {activeTab === 'approvals' && (
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
             <h2 className="mb-6 text-xl font-semibold text-white">Pending Transaction Approvals</h2>
-            {pendingApprovals.length === 0 ? (
+            {displayPendingApprovals.length === 0 ? (
               <p className="py-8 text-center text-slate-400">No pending approvals</p>
             ) : (
               <div className="space-y-4">
-                {pendingApprovals.map((transaction) => (
+                {displayPendingApprovals.map((transaction) => (
                   <div
                     key={transaction.id}
                     className="flex items-center justify-between rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-6"
@@ -251,7 +381,7 @@ function AdminPage() {
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
             <h2 className="mb-6 text-xl font-semibold text-white">Recent System Activity</h2>
             <div className="space-y-4">
-              {users.flatMap(user => 
+              {displayUsers.flatMap(user => 
                 user.transactions.slice(0, 3).map(t => ({
                   ...t,
                   userName: user.name,

@@ -96,6 +96,7 @@ export const BankProvider = ({ children }) => {
           email: data.user.email,
           phone: data.user.phone,
           avatarUrl: data.user.avatarUrl,
+          role: data.user.role,
           accountNumber: '****' + String(Math.floor(1000 + Math.random() * 9000)),
           balance: data.user.balance ?? 0,
           checking: (data.user.accounts?.find(a => a.accountType==='checking')?.balance) ?? 0,
@@ -140,8 +141,9 @@ export const BankProvider = ({ children }) => {
         const errorData = await res.json().catch(() => ({}));
         return { success: false, message: errorData.message || 'Login failed' };
       }
+      const data = await res.json();
       await fetchProfile();
-      return { success: true };
+      return { success: true, user: data.user };
     } catch {
       return { success: false, message: 'Network error. Please try again.' };
     }

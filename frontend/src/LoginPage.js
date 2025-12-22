@@ -15,7 +15,12 @@ function LoginPage() {
     setError('');
     const result = await login(formData.email, formData.password);
     if (result.success) {
-      navigate('/dashboard');
+      // Use the user role returned from login to determine redirect
+      if (result.user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setError(result.message || 'Invalid email or password');
     }

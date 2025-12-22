@@ -9,6 +9,7 @@ dotenv.config();
 const { connectDB } = require("./src/config/database");
 const authRoutes = require("./src/routes/authRoutes");
 const transactionRoutes = require("./src/routes/transactionRoutes");
+const adminRoutes = require("./src/routes/adminRoutes");
 
 const app = express();
 
@@ -48,13 +49,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Rate limiting
+// Rate limiting - more permissive for authenticated API calls
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
+  max: 1000, // Increased limit for real-time features
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for authenticated API requests
+    return req.path.startsWith('/api/') && req.cookies?.accessToken;
+  },
 });
 app.use(limiter);
 
@@ -71,6 +76,7 @@ app.get("/", (req, res) => {
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/admin", adminRoutes);
 
 // 404 handler
 app.use((req, res) => {
