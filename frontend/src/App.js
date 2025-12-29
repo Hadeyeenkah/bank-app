@@ -13,14 +13,16 @@ import DepositPage from './pages/DepositPage';
 import CardsPage from './pages/CardsPage';
 import SecurityPage from './pages/SecurityPage';
 import NotificationsPage from './pages/NotificationsPage';
+import AboutPage from './pages/AboutPage';
 import AuroraBankLogo from './components/AuroraBankLogo';
+import Footer from './components/Footer';
 import './App.css';
 
 const stats = [
+  { label: 'Est.', value: '1921' },
   { label: 'Customers', value: '2.3M+' },
-  { label: 'Countries', value: '38' },
   { label: 'Daily Transactions', value: '4.1M' },
-  { label: 'Uptime', value: '99.99%' },
+  { label: 'FDIC Insured', value: '$250K' },
 ];
 
 const products = [
@@ -31,7 +33,7 @@ const products = [
   },
   {
     title: 'High-Yield Savings',
-    desc: 'Earn up to 4.15% APY with FDIC coverage and automatic round-ups.',
+    desc: 'Earn up to 4.15% APY. FDIC insured up to $250,000 per depositor.',
     cta: 'Start Saving',
   },
   {
@@ -73,6 +75,7 @@ function App() {
         <Route path="/cards" element={<RequireAuth><CardsPage /></RequireAuth>} />
         <Route path="/security" element={<RequireAuth><SecurityPage /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
+        <Route path="/about" element={<AboutPage />} />
       </Routes>
     </BankProvider>
   );
@@ -104,11 +107,12 @@ function HomePage() {
             <div className="text-cyan-400">
               <AuroraBankLogo />
             </div>
-            <span className="text-lg font-semibold tracking-tight">Aurora Bank</span>
+            <span className="text-lg font-semibold tracking-tight">Aurora Bank, FSB</span>
           </div>
           <nav className="hidden items-center gap-6 text-sm text-slate-200 md:flex">
             <a className="hover:text-white" href="#products">Products</a>
             <a className="hover:text-white" href="#features">Features</a>
+            <Link to="/about" className="hover:text-white">About</Link>
             <a className="hover:text-white" href="#support">Support</a>
             <Link to="/login" className="rounded-full border border-cyan-300/50 px-4 py-2 text-cyan-50 hover:border-cyan-200 hover:text-white">
               Sign In
@@ -128,7 +132,7 @@ function HomePage() {
                 than your life.
               </h1>
               <p className="text-lg text-slate-200 md:text-xl">
-                Build savings, spend globally, and move money in real time with Aurora Bank’s secure cloud-native platform.
+                Build savings, spend globally, and move money in real time. Trusted since 1921. Member FDIC.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link to="/signup" className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-400/30 transition hover:translate-y-0.5">
@@ -353,29 +357,7 @@ function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/5 bg-slate-950 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="text-lg font-semibold tracking-tight text-white">Aurora Bank</span>
-            </div>
-            <p className="mt-2 text-sm text-slate-400">FDIC insured up to $250,000 per depositor.</p>
-            <p className="mt-1 text-xs text-slate-500">© 2025 Aurora Bank. All rights reserved.</p>
-          </div>
-          <div className="flex flex-wrap gap-4 text-sm text-slate-300">
-            <a className="hover:text-white" href="#products">Products</a>
-            <a className="hover:text-white" href="#features">Security</a>
-            <a className="hover:text-white" href="#support">Support</a>
-            <a className="hover:text-white" href="#">Legal</a>
-            <a className="hover:text-white" href="#">Privacy</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

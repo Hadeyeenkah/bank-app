@@ -7,9 +7,11 @@ import '../App.css';
 function TransferPage() {
   const { currentUser, transferMoney } = useBankContext();
   const navigate = useNavigate();
+  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
   const [formData, setFormData] = useState({
     transferType: 'external',
     recipientName: '',
+    recipientEmail: '',
     bankName: '',
     routingNumber: '',
     accountNumber: '',
@@ -22,6 +24,7 @@ function TransferPage() {
   const [messageType, setMessageType] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [sendingNotification, setSendingNotification] = useState(false);
 
   const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -29,8 +32,19 @@ function TransferPage() {
     window.print();
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.amount || Number(formData.amount) <= 0) {
+      setMessageType('error');
+      setMessage('Enter a valid amount greater than $0.00');
+      return;
+    }
+    if (formData.transferType === 'external' && !formData.recipientEmail) {
+      setMessageType('error');
+      setMessage('Recipient email is required for external transfers.');
+      return;
+    }
+
     const result = transferMoney({
       fromUserId: currentUser.id,
       amount: parseFloat(formData.amount),
@@ -51,6 +65,28 @@ function TransferPage() {
       setMessage(result.message || 'Transfer initiated successfully!');
       setReceipt(result.receipt || null);
       setShowReceiptModal(true);
+
+      // Fire off receiver notification (on-hold notice)
+      if (formData.transferType === 'external') {
+        setSendingNotification(true);
+        try {
+          await fetch(`${apiBase}/transactions/notify-receiver`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              receiverEmail: formData.recipientEmail,
+              senderName: currentUser?.name || currentUser?.email || 'Aurora Bank client',
+              amount: parseFloat(formData.amount),
+              note: formData.note,
+            }),
+          });
+        } catch (err) {
+          console.warn('Receiver notification failed (non-blocking):', err);
+        } finally {
+          setSendingNotification(false);
+        }
+      }
     } else {
       setMessageType('error');
       setMessage(result.message);
@@ -132,6 +168,17 @@ function TransferPage() {
                       value={formData.recipientName}
                       onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
                       placeholder="Pat Taylor"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-slate-200">Recipient Email</label>
+                    <input
+                      type="email"
+                      value={formData.recipientEmail}
+                      onChange={(e) => setFormData({ ...formData, recipientEmail: e.target.value })}
+                      placeholder="recipient@email.com"
                       className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
                       required
                     />
@@ -236,7 +283,7 @@ function TransferPage() {
                     : 'border border-red-500/20 bg-red-500/10 text-red-400'
                   }`}
                 >
-                  {message}
+                  {message} {sendingNotification && messageType === 'success' && '(notifying receiver...)'}
                 </div>
               )}
 

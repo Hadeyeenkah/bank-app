@@ -1,6 +1,7 @@
 // src/controllers/transactionController.js
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const { sendVerificationEmail } = require('../utils/email');
 
 // Create a new transaction
 exports.createTransaction = async (req, res) => {
@@ -184,5 +185,26 @@ exports.getPendingTransactions = async (req, res) => {
   } catch (error) {
     console.error('Get pending transactions error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Notify receiver via email that a transfer is initiated and on hold for security review
+exports.notifyReceiver = async (req, res) => {
+  try {
+    const { receiverEmail, senderName, amount, note } = req.body;
+
+    if (!receiverEmail || !senderName || !amount) {
+      return res.status(400).json({ message: 'receiverEmail, senderName, and amount are required' });
+    }
+
+    const safeAmount = Number(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    const message = `You have a pending transfer of ${safeAmount} from ${senderName}. This transfer is currently on hold for security review. ${note ? 'Note: ' + note : ''}`;
+
+    await sendVerificationEmail(receiverEmail, message);
+
+    return res.json({ message: 'Receiver notified', detail: message });
+  } catch (error) {
+    console.error('Notify receiver error:', error);
+    res.status(500).json({ message: 'Server error notifying receiver' });
   }
 };

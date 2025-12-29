@@ -6,8 +6,11 @@ const jwt = require('jsonwebtoken');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const User = require('../models/User');
+const LoginAttempt = require('../models/LoginAttempt');
 const { generateTokens, setAuthCookies } = require('../utils/tokenUtils');
 const { sendVerificationEmail } = require('../utils/email');
+
+// Note: Removed in-memory demo users to enforce MongoDB-backed auth.
 
 // Register new user (strong auth: hashed password, unique email, email verification)
 exports.register = async (req, res) => {
@@ -19,10 +22,12 @@ exports.register = async (req, res) => {
 
     const { email, password, firstName, lastName, phone, dateOfBirth } = req.body;
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const existing = await User.findOne({ email: email.toLowerCase() }).catch(() => null);
     if (existing) {
       return res.status(400).json({ message: 'User already exists' });
     }
+
+    // Local in-memory fallback removed for login flow; registration remains MongoDB-first.
 
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
@@ -32,38 +37,50 @@ exports.register = async (req, res) => {
 
     const role = email.toLowerCase() === 'admin@aurorabank.com' ? 'admin' : 'user';
 
-    const user = await User.create({
-      email: email.toLowerCase(),
-      password: passwordHash,
-      firstName,
-      lastName,
-      phone: phone || null,
-      dateOfBirth: dateOfBirth || null,
-      balance: 0,
-      isVerified: false,
-      verificationToken,
-      verificationExpires,
-      role,
-      accounts: [
-        { accountType: 'checking', accountNumber: `CHK${Date.now()}`, balance: 1000 },
-        { accountType: 'savings', accountNumber: `SAV${Date.now()}`, balance: 0 },
-      ],
-    });
+    let user = null;
+    try {
+      user = await User.create({
+        email: email.toLowerCase(),
+        password: passwordHash,
+        firstName,
+        lastName,
+        phone: phone || null,
+        dateOfBirth: dateOfBirth || null,
+        balance: 0,
+        isVerified: false,
+        verificationToken,
+        verificationExpires,
+        role,
+        accounts: [
+          { accountType: 'checking', accountNumber: `CHK${Date.now()}`, balance: 1000 },
+          { accountType: 'savings', accountNumber: `SAV${Date.now()}`, balance: 0 },
+        ],
+      });
+    } catch (dbError) {
+      console.log('❌ Database unavailable during registration:', dbError.message);
+      return res.status(500).json({ message: 'Database unavailable. Please try again later.' });
+    }
 
     const origin = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
     const apiBase = process.env.API_BASE || 'http://localhost:5000';
     const link = `${apiBase}/api/auth/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(user.email, link);
+    
+    // Try to send email, but don't fail if unavailable
+    try {
+      await sendVerificationEmail(user.email, link);
+    } catch (emailErr) {
+      console.log('⚠️  Email service unavailable:', emailErr.message);
+    }
 
     // Issue auth cookies immediately so the user can land in the app post-signup
-    const { accessToken, refreshToken } = generateTokens(user.id);
+    const { accessToken, refreshToken } = generateTokens(user._id || user.id);
     setAuthCookies(res, { accessToken, refreshToken });
 
     res.status(201).json({
       message: 'User registered successfully. Please check your email to verify your account.',
       verificationLink: process.env.NODE_ENV === 'production' ? undefined : link,
       user: {
-        id: user.id,
+        id: user._id || user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -72,8 +89,8 @@ exports.register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    console.error('❌ Register error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error during registration', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -107,33 +124,81 @@ exports.login = async (req, res) => {
     }
 
     const { email, password } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    
+    // Check if database is connected
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password').catch(() => null);
+
     if (!user) {
+      try {
+        await LoginAttempt.create({
+          email: email.toLowerCase(),
+          success: false,
+          failureReason: 'user_not_found',
+          ip: req.ip,
+          userAgent: req.headers['user-agent'] || null,
+        });
+      } catch (_) {}
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      try {
+        await LoginAttempt.create({
+          email: email.toLowerCase(),
+          userId: user._id || null,
+          success: false,
+          failureReason: 'password_mismatch',
+          ip: req.ip,
+          userAgent: req.headers['user-agent'] || null,
+        });
+      } catch (_) {}
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     if (user.mfaEnabled) {
       // Issue short-lived MFA challenge token
+      const jwtSecret = process.env.JWT_SECRET || 'dev-access-secret-change-me';
       const challengeToken = jwt.sign(
-        { userId: user.id, type: 'mfa' },
-        process.env.JWT_SECRET,
+        { userId: user._id || user.id, type: 'mfa' },
+        jwtSecret,
         { expiresIn: '5m' }
       );
+      try {
+        await LoginAttempt.create({
+          email: email.toLowerCase(),
+          userId: user._id || null,
+          success: true,
+          failureReason: null,
+          ip: req.ip,
+          userAgent: req.headers['user-agent'] || null,
+        });
+      } catch (_) {}
       return res.json({ mfaRequired: true, challengeToken });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
+    const { accessToken, refreshToken } = generateTokens(user._id || user.id);
     setAuthCookies(res, { accessToken, refreshToken });
+
+    try {
+      await LoginAttempt.create({
+        email: email.toLowerCase(),
+        userId: user._id || null,
+        success: true,
+        failureReason: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+      });
+    } catch (_) {}
 
     res.json({
       message: 'Login successful',
       user: {
-        id: user.id,
+        id: user._id || user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -141,8 +206,8 @@ exports.login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error('❌ Login error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error during login', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 

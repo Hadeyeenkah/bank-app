@@ -6,10 +6,11 @@ const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv");
 dotenv.config();
 
-const { connectDB } = require("./src/config/database");
+const { connectDB, isDBConnected } = require("./src/config/database");
 const authRoutes = require("./src/routes/authRoutes");
 const transactionRoutes = require("./src/routes/transactionRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const { seedDemoUsers } = require("./src/utils/seedDemoUsers");
 
 const app = express();
 
@@ -17,34 +18,51 @@ const app = express();
 app.use(helmet());
 
 // CORS Configuration
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:3000")
+const defaultDevOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+const envOrigins = (process.env.CLIENT_ORIGIN || process.env.CLIENT_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
 
+const allowedOrigins = Array.from(new Set([...defaultDevOrigins, ...envOrigins]));
+
+const isLocalOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, curl, same-origin)
+    if (!origin) return callback(null, true);
+
+    if (isLocalOrigin(origin) || allowedOrigins.includes(origin)) {
+      console.log('✅ CORS allowed origin:', origin);
+      return callback(null, true);
+    }
+
+    console.log('❌ CORS blocked origin:', origin);
+    return callback(new Error(`CORS policy: Origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
+  maxAge: 86400, // 24 hours
+  optionsSuccessStatus: 200,
+};
+
 console.log('🔒 CORS allowed origins:', allowedOrigins);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, curl, same-origin)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        console.log('✅ CORS allowed origin:', origin);
-        callback(null, true);
-      } else {
-        console.log('❌ CORS blocked origin:', origin);
-        callback(new Error(`CORS policy: Origin ${origin} not allowed`));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-    exposedHeaders: ['Set-Cookie'],
-    maxAge: 86400, // 24 hours
-  })
-);
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Parsers
 app.use(express.json());
@@ -108,14 +126,56 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+let PORT = Number(process.env.PORT) || 5000;
+const MAX_PORT_FALLBACK_TRIES = Number(process.env.PORT_FALLBACK_MAX_TRIES || 10);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  connectDB(); // Connect to database
-});
+// Start server after initial DB connection attempt
+async function start() {
+  const connected = await connectDB();
+
+  // Seed demo users into MongoDB when requested (useful for hosted DBs)
+  if (connected && process.env.DEMO_SEED === 'true') {
+    await seedDemoUsers();
+  }
+
+  let tries = 0;
+
+  const onListening = () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    if (connected || isDBConnected()) {
+      console.log('🗄️  Database: connected');
+    } else {
+      console.log('🗄️  Database: NOT connected (server running without DB)');
+    }
+  };
+
+  const listenWithFallback = () => {
+    const server = app.listen(PORT, onListening);
+    server.on('error', (err) => {
+      if (err && err.code === 'EADDRINUSE') {
+        tries += 1;
+        if (tries > MAX_PORT_FALLBACK_TRIES) {
+          console.error(`❌ Failed to bind after ${MAX_PORT_FALLBACK_TRIES} attempts. Last attempted port: ${PORT}`);
+          console.error('👉 Close the existing process or set a different PORT env var.');
+          process.exit(1);
+        }
+        const nextPort = PORT + 1;
+        console.warn(`⚠️  Port ${PORT} in use. Retrying on ${nextPort}...`);
+        PORT = nextPort;
+        // Try again on the next port
+        setTimeout(listenWithFallback, 200);
+      } else {
+        console.error('❌ Server listen error:', err);
+        process.exit(1);
+      }
+    });
+  };
+
+  listenWithFallback();
+}
+
+start();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

@@ -53,7 +53,7 @@ export const BankProvider = ({ children }) => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
 
   // Backend: helper to call API with cookies
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
+  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
 
   const fetchProfile = async () => {
     try {
@@ -61,56 +61,64 @@ export const BankProvider = ({ children }) => {
         method: 'GET',
         credentials: 'include',
       });
-      if (res.ok) {
-        const data = await res.json();
-        
-        // Fetch transactions from backend
-        let transactions = [];
-        let pendingTransactions = [];
-        try {
-          const txRes = await fetch(`${apiBase}/transactions?limit=100`, {
-            method: 'GET',
-            credentials: 'include',
-          });
-          if (txRes.ok) {
-            const txData = await txRes.json();
-            transactions = (txData.transactions || []).map(tx => ({
-              id: tx._id,
-              date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-              description: tx.description,
-              amount: tx.amount,
-              category: tx.category,
-              status: tx.status,
-              accountType: tx.accountType,
-              note: tx.note,
-            }));
-            pendingTransactions = transactions.filter(t => t.status === 'pending');
-          }
-        } catch (err) {
-          console.log('Failed to fetch transactions:', err);
-        }
-        
-        setCurrentUser({
-          id: data.user._id || data.user.id,
-          name: `${data.user.firstName} ${data.user.lastName}`.trim() || data.user.email,
-          email: data.user.email,
-          phone: data.user.phone,
-          avatarUrl: data.user.avatarUrl,
-          role: data.user.role,
-          accountNumber: '****' + String(Math.floor(1000 + Math.random() * 9000)),
-          balance: data.user.balance ?? 0,
-          checking: (data.user.accounts?.find(a => a.accountType==='checking')?.balance) ?? 0,
-          savings: (data.user.accounts?.find(a => a.accountType==='savings')?.balance) ?? 0,
-          transactions,
-          pendingTransactions,
-        });
-        setIsAuthenticated(true);
-        return true;
+
+      // If not logged in, avoid noisy errors and just return
+      if (res.status === 401 || res.status === 403) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        return false;
       }
-      // Silently handle non-200 responses (401, 403, etc. are expected when no session)
-      setIsAuthenticated(false);
-      setCurrentUser(null);
-      return false;
+
+      if (!res.ok) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        return false;
+      }
+
+      const data = await res.json();
+      
+      // Fetch transactions from backend
+      let transactions = [];
+      let pendingTransactions = [];
+      try {
+        const txRes = await fetch(`${apiBase}/transactions?limit=100`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (txRes.ok) {
+          const txData = await txRes.json();
+          transactions = (txData.transactions || []).map(tx => ({
+            id: tx._id,
+            date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            description: tx.description,
+            amount: tx.amount,
+            category: tx.category,
+            status: tx.status,
+            accountType: tx.accountType,
+            note: tx.note,
+          }));
+          pendingTransactions = transactions.filter(t => t.status === 'pending');
+        }
+      } catch (err) {
+        console.log('Failed to fetch transactions:', err);
+      }
+      
+      setCurrentUser({
+        id: data.user._id || data.user.id,
+        name: `${data.user.firstName} ${data.user.lastName}`.trim() || data.user.email,
+        email: data.user.email,
+        phone: data.user.phone,
+        avatarUrl: data.user.avatarUrl,
+        role: data.user.role,
+        accountNumber: '****' + String(Math.floor(1000 + Math.random() * 9000)),
+        balance: data.user.balance ?? 0,
+        checking: (data.user.accounts?.find(a => a.accountType==='checking')?.balance) ?? 0,
+        savings: (data.user.accounts?.find(a => a.accountType==='savings')?.balance) ?? 0,
+        transactions,
+        pendingTransactions,
+      });
+      setIsAuthenticated(true);
+      return true;
     } catch (err) {
       setIsAuthenticated(false);
       setCurrentUser(null);

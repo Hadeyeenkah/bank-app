@@ -33,11 +33,14 @@ function LoginPage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-3 text-cyan-400">
           <AuroraBankLogo />
-          <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank</span>
+          <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank, FSB</span>
         </div>
-        <Link to="/" className="rounded-full border border-cyan-300/50 px-4 py-2 text-sm text-cyan-50 hover:border-cyan-200 hover:text-white">
-          ← Back to home
-        </Link>
+        <div className="flex gap-3 items-center">
+          <Link to="/about" className="text-sm text-slate-300 hover:text-cyan-200">About</Link>
+          <Link to="/" className="rounded-full border border-cyan-300/50 px-4 py-2 text-sm text-cyan-50 hover:border-cyan-200 hover:text-white">
+            ← Back to home
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col items-center px-6 py-10 md:flex-row md:justify-between md:py-16">
@@ -48,9 +51,10 @@ function LoginPage() {
             Access your accounts with multi-factor authentication and enterprise-grade encryption.
           </p>
           <ul className="space-y-2 text-sm text-slate-300">
-            <li>• Biometric login on supported devices</li>
-            <li>• Instant card freeze and unfreeze</li>
-            <li>• 24/7 fraud monitoring</li>
+            <li>• FDIC insured up to $250,000 per depositor</li>
+            <li>• Multi-factor authentication & biometrics</li>
+            <li>• 256-bit SSL encryption</li>
+            <li>• 24/7 fraud monitoring & zero liability</li>
           </ul>
         </div>
 

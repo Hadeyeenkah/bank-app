@@ -15,7 +15,7 @@ function AdminPage() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
+  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
 
   // Fetch admin data in real-time
   const fetchAdminData = async () => {

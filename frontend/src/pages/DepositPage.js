@@ -23,7 +23,7 @@ function DepositPage() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receipt, setReceipt] = useState(null);
 
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
+  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
 
   const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
 

@@ -13,10 +13,27 @@ function Dashboard() {
   const [editMode, setEditMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Deposit received', detail: 'Salary deposit of $5,200', time: '2m ago' },
-    { id: 2, title: 'Card purchase', detail: 'Spent $152.43 at Grocery Store', time: '30m ago' },
-    { id: 3, title: 'Login', detail: 'New sign-in from Chrome on Linux', time: '1h ago' },
+    { id: 1, title: 'Deposit received', detail: 'Salary deposit of $5,200', time: new Date(Date.now() - 2 * 60 * 1000).toISOString(), read: false },
+    { id: 2, title: 'Card purchase', detail: 'Spent $152.43 at Grocery Store', time: new Date(Date.now() - 30 * 60 * 1000).toISOString(), read: false },
+    { id: 3, title: 'Login', detail: 'New sign-in from Chrome on Linux', time: new Date(Date.now() - 60 * 60 * 1000).toISOString(), read: false },
   ]);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const formatTime = (isoString) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
   const [formData, setFormData] = useState({
     firstName: currentUser?.name.split(' ')[0] || '',
     lastName: currentUser?.name.split(' ').slice(1).join(' ') || '',
@@ -26,6 +43,16 @@ function Dashboard() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  const handleToggleNotifications = () => {
+    setShowNotifications((prev) => {
+      const next = !prev;
+      if (!prev && unreadCount > 0) {
+        setNotifications((existing) => existing.map((n) => ({ ...n, read: true })));
+      }
+      return next;
+    });
+  };
 
   // Keep form data in sync with latest user profile
   useEffect(() => {
@@ -41,14 +68,22 @@ function Dashboard() {
 
   // Real-time notifications: try SSE stream, fall back to gentle client-side ticks
   useEffect(() => {
-    const notificationsUrl = process.env.REACT_APP_NOTIFICATIONS_URL || 'http://localhost:5000/api/notifications/stream';
+    const notificationsUrl = process.env.REACT_APP_NOTIFICATIONS_URL || 'http://localhost:5001/api/notifications/stream';
     let source;
     let interval;
 
     const pushLocal = (payload) => {
       setNotifications((prev) => {
         const nextId = (prev[0]?.id || 0) + 1;
-        const updated = [{ id: nextId, ...payload }, ...prev];
+        const updated = [
+          {
+            id: nextId,
+            read: false,
+            time: new Date().toISOString(),
+            ...payload,
+          },
+          ...prev,
+        ];
         return updated.slice(0, 10);
       });
     };
@@ -57,9 +92,11 @@ function Dashboard() {
       if (interval) return;
       interval = setInterval(() => {
         const samples = [
-          { title: 'Payment processed', detail: 'Bill payment of $120 succeeded', time: 'just now' },
-          { title: 'Card authorization', detail: 'Pending card auth $32.10 at Coffee Shop', time: 'just now' },
-          { title: 'Transfer completed', detail: 'You sent $250 to Alex Smith', time: 'just now' },
+          { title: 'Payment processed', detail: 'Bill payment of $120 succeeded' },
+          { title: 'Card authorization', detail: 'Pending card auth $32.10 at Coffee Shop' },
+          { title: 'Transfer completed', detail: 'You sent $250 to Alex Smith' },
+          { title: 'Deposit received', detail: 'ACH deposit of $1,200 cleared' },
+          { title: 'ATM withdrawal', detail: 'Withdrew $200 at Main St. ATM' },
         ];
         const sample = samples[Math.floor(Math.random() * samples.length)];
         pushLocal(sample);
@@ -74,10 +111,10 @@ function Dashboard() {
           pushLocal({
             title: data.title || 'Account update',
             detail: data.detail || data.message || 'New activity on your account',
-            time: data.time || 'just now',
+            time: data.time || new Date().toISOString(),
           });
         } catch {
-          pushLocal({ title: 'Notification', detail: event.data, time: 'just now' });
+          pushLocal({ title: 'Notification', detail: event.data, time: new Date().toISOString() });
         }
       };
       source.onerror = () => {
@@ -100,7 +137,15 @@ function Dashboard() {
     if (!flash) return;
     setNotifications((prev) => {
       const nextId = (prev[0]?.id || 0) + 1;
-      return [{ id: nextId, ...flash }, ...prev].slice(0, 10);
+      return [
+        {
+          id: nextId,
+          read: false,
+          time: new Date().toISOString(),
+          ...flash,
+        },
+        ...prev,
+      ].slice(0, 10);
     });
     navigate(location.pathname, { replace: true, state: {} });
   }, [location.state, location.pathname, navigate]);
@@ -180,17 +225,24 @@ function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 text-cyan-400">
               <AuroraBankLogo />
-              <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank</span>
+              <span className="text-lg font-semibold tracking-tight text-slate-50">Aurora Bank, FSB</span>
             </div>
             
           </div>
           <div className="flex items-center gap-4">
             <div className="relative">
               <button
-                onClick={() => setShowNotifications((prev) => !prev)}
+                onClick={handleToggleNotifications}
                 className="rounded-full border border-white/10 p-2 hover:border-cyan-200/50 transition"
               >
-                <span className="text-lg">🔔</span>
+                <span className="relative inline-flex items-center justify-center text-lg">
+                  🔔
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white text-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </span>
               </button>
 
               {showNotifications && (
@@ -212,7 +264,7 @@ function Dashboard() {
                       <div key={n.id} className="p-4 hover:bg-white/5 transition">
                         <div className="text-sm font-semibold text-white">{n.title}</div>
                         <div className="text-xs text-slate-400 mt-1">{n.detail}</div>
-                        <div className="text-[11px] text-slate-500 mt-1">{n.time}</div>
+                        <div className="text-[11px] text-slate-500 mt-1">{formatTime(n.time)}</div>
                       </div>
                     ))}
                   </div>

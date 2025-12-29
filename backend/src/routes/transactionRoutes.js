@@ -8,6 +8,7 @@ const { protect, requireRole } = require('../middleware/authMiddleware');
 router.post('/', protect, transactionController.createTransaction);
 router.get('/', protect, transactionController.getTransactions);
 router.get('/:id', protect, transactionController.getTransactionById);
+router.post('/notify-receiver', protect, transactionController.notifyReceiver);
 
 // Admin routes
 router.get('/admin/pending', protect, requireRole('admin'), transactionController.getPendingTransactions);

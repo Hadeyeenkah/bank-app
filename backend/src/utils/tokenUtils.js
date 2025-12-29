@@ -1,11 +1,15 @@
 const jwt = require('jsonwebtoken');
 
 exports.generateTokens = (userId) => {
-	const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, {
+	// Use env secrets, with safe dev defaults for local testing
+	const accessSecret = process.env.JWT_SECRET || 'dev-access-secret-change-me';
+	const refreshSecret = process.env.JWT_REFRESH_SECRET || accessSecret;
+
+	const accessToken = jwt.sign({ userId }, accessSecret, {
 		expiresIn: process.env.JWT_EXPIRE || '15m',
 	});
 
-	const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, {
+	const refreshToken = jwt.sign({ userId }, refreshSecret, {
 		expiresIn: '7d',
 	});
 
@@ -15,12 +19,12 @@ exports.generateTokens = (userId) => {
 exports.setAuthCookies = (res, { accessToken, refreshToken }) => {
 	const isProd = process.env.NODE_ENV === 'production';
 
-	// For cross-origin (different domains), need sameSite: 'none' and secure: true
-	// However, for development/mobile, we use 'none' with secure flag conditionally
+	// In development (localhost), use sameSite: 'lax' and secure: false
+	// In production, use sameSite: 'none' and secure: true for cross-origin requests
 	const cookieOptions = {
 		httpOnly: true,
-		secure: isProd || process.env.FORCE_SECURE_COOKIES === 'true', // true in production or when explicitly set
-		sameSite: 'none', // Allow cross-origin cookies (needed for mobile, different domains, etc.)
+		secure: isProd, // Only secure in production
+		sameSite: isProd ? 'none' : 'lax', // 'lax' for dev (localhost), 'none' for prod
 		path: '/',
 	};
 

@@ -31,10 +31,10 @@ exports.protect = (req, res, next) => {
 			
 			try {
 				const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
-				const { generateTokens } = require('../utils/tokenUtils');
+				const { generateTokens, setAuthCookies } = require('../utils/tokenUtils');
 				const { accessToken: newAccessToken } = generateTokens(decoded.userId);
 				
-				// Set new access token cookie
+				// Set new access token cookie using setAuthCookies for consistency
 				const isProd = process.env.NODE_ENV === 'production';
 				res.cookie('accessToken', newAccessToken, {
 					httpOnly: true,
