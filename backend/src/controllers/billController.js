@@ -7,6 +7,15 @@ const User = require('../models/User');
 exports.payBill = async (req, res) => {
   try {
     const { payee, amount, category, accountNumber, fromAccount, note, dueDate } = req.body;
+    const userId = req.userId;
+
+    // Validate user ID
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'User not authenticated',
+      });
+    }
 
     // Validate required fields
     if (!payee || !amount || amount <= 0) {
@@ -17,14 +26,16 @@ exports.payBill = async (req, res) => {
     }
 
     // Get user to check balance
-    const user = await User.findById(req.userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
-    const accountBalance = fromAccount === 'savings' ? user.accounts?.find(a => a.accountType === 'savings')?.balance : user.accounts?.find(a => a.accountType === 'checking')?.balance;
+    const accountBalance = fromAccount === 'savings' 
+      ? user.accounts?.find(a => a.accountType === 'savings')?.balance 
+      : user.accounts?.find(a => a.accountType === 'checking')?.balance;
     
-    if (!accountBalance || accountBalance < amount) {
+    if (accountBalance === undefined || accountBalance < amount) {
       return res.status(400).json({
         status: 'error',
         message: 'Insufficient funds for this bill payment',
@@ -32,11 +43,11 @@ exports.payBill = async (req, res) => {
     }
 
     // Generate unique reference
-    const reference = `BILL-${req.userId}-${Date.now()}`;
+    const reference = `BILL-${userId}-${Date.now()}`;
 
     // Create transaction record
     const transaction = await Transaction.create({
-      userId: req.userId,
+      userId: userId,
       amount: -amount,
       description: `Bill Payment: ${payee}`,
       category: category || 'Bills',
@@ -48,6 +59,75 @@ exports.payBill = async (req, res) => {
       date: new Date(),
       recipientMeta: {
         payee,
+        accountNumber: accountNumber || '',
+      },
+    });
+
+    // Create bill payment record
+    const bill = await Bill.create({
+      userId: userId,
+      payee,
+      amount,
+      category: category || 'Other',
+      accountNumber: accountNumber || '',
+      fromAccount: fromAccount || 'checking',
+      status: 'completed',
+      transactionId: transaction._id,
+      note: note || '',
+      dueDate: dueDate ? new Date(dueDate) : null,
+      reference,
+    });
+
+    // Update user account balance
+    if (fromAccount === 'savings') {
+      user.accounts = user.accounts.map(acc =>
+        acc.accountType === 'savings'
+          ? { ...acc, balance: acc.balance - amount }
+          : acc
+      );
+    } else {
+      user.accounts = user.accounts.map(acc =>
+        acc.accountType === 'checking'
+          ? { ...acc, balance: acc.balance - amount }
+          : acc
+      );
+    }
+
+    // Update overall balance
+    user.balance = (user.balance || 0) - amount;
+    await user.save();
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Bill payment completed successfully',
+      bill: {
+        id: bill._id,
+        payee: bill.payee,
+        amount: bill.amount,
+        category: bill.category,
+        status: bill.status,
+        paymentDate: bill.paymentDate,
+        reference: bill.reference,
+        transactionId: transaction._id,
+      },
+      transaction: {
+        id: transaction._id,
+        description: transaction.description,
+        amount: transaction.amount,
+        category: transaction.category,
+        status: transaction.status,
+        date: transaction.date,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Bill payment error:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error processing bill payment',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
         accountNumber: accountNumber || '',
       },
     });
@@ -121,9 +201,19 @@ exports.payBill = async (req, res) => {
 // Get all bill payments for current user
 exports.getBillPayments = async (req, res) => {
   try {
+    const userId = req.userId;
+
+    // Validate user ID
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'User not authenticated',
+      });
+    }
+
     const { status, limit = 50, skip = 0 } = req.query;
 
-    const query = { userId: req.userId };
+    const query = { userId: userId };
     if (status) {
       query.status = status;
     }
@@ -132,13 +222,14 @@ exports.getBillPayments = async (req, res) => {
       .populate('transactionId')
       .sort({ paymentDate: -1 })
       .limit(parseInt(limit))
-      .skip(parseInt(skip));
+      .skip(parseInt(skip))
+      .lean();
 
     const total = await Bill.countDocuments(query);
 
     res.json({
       status: 'success',
-      bills,
+      bills: bills || [],
       pagination: {
         total,
         limit: parseInt(limit),
@@ -150,6 +241,7 @@ exports.getBillPayments = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Server error fetching bill payments',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -157,10 +249,20 @@ exports.getBillPayments = async (req, res) => {
 // Get single bill payment by ID
 exports.getBillPaymentById = async (req, res) => {
   try {
+    const userId = req.userId;
+
+    // Validate user ID
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'User not authenticated',
+      });
+    }
+
     const bill = await Bill.findOne({
       _id: req.params.id,
-      userId: req.userId,
-    }).populate('transactionId');
+      userId: userId,
+    }).populate('transactionId').lean();
 
     if (!bill) {
       return res.status(404).json({
@@ -178,6 +280,7 @@ exports.getBillPaymentById = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Server error fetching bill',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

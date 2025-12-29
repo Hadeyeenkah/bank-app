@@ -10,6 +10,7 @@ const { connectDB, isDBConnected } = require("./src/config/database");
 const authRoutes = require("./src/routes/authRoutes");
 const transactionRoutes = require("./src/routes/transactionRoutes");
 const billRoutes = require("./src/routes/billRoutes");
+const notificationRoutes = require("./src/routes/notificationRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const { seedDemoUsers } = require("./src/utils/seedDemoUsers");
 
@@ -98,6 +99,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/bills", billRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 
 // 404 handler
