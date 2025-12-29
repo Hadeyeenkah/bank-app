@@ -632,16 +632,68 @@ export const BankProvider = ({ children }) => {
     };
   };
 
-  // Pay bill
-  const payBill = (userId, billData) => {
-    const transaction = {
-      date: new Date().toISOString().split('T')[0],
-      description: `Bill Payment: ${billData.payee}`,
-      amount: -billData.amount,
-      category: 'Bills',
-      accountType: billData.fromAccount,
-    };
-    addTransaction(userId, transaction);
+  // Pay bill - call backend API
+  const payBill = async (userId, billData) => {
+    try {
+      const res = await fetch(`${apiBase}/bills`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payee: billData.payee,
+          amount: parseFloat(billData.amount),
+          category: billData.category,
+          accountNumber: billData.accountNumber,
+          fromAccount: billData.fromAccount,
+          note: billData.note || `Bill payment to ${billData.payee}`,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        return {
+          success: false,
+          message: errorData.message || 'Failed to process bill payment',
+        };
+      }
+
+      const data = await res.json();
+
+      // Add transaction to current user's transactions locally
+      if (currentUser) {
+        const newTransaction = {
+          id: data.transaction.id,
+          date: new Date(data.transaction.date).toISOString().split('T')[0],
+          description: data.transaction.description,
+          amount: data.transaction.amount,
+          category: data.transaction.category,
+          status: data.transaction.status,
+          accountType: billData.fromAccount,
+          note: billData.note || `Payment to ${billData.payee}`,
+        };
+
+        setCurrentUser(prev => ({
+          ...prev,
+          transactions: [newTransaction, ...prev.transactions],
+          checking: billData.fromAccount === 'checking' ? prev.checking - parseFloat(billData.amount) : prev.checking,
+          savings: billData.fromAccount === 'savings' ? prev.savings - parseFloat(billData.amount) : prev.savings,
+          balance: prev.balance - parseFloat(billData.amount),
+        }));
+      }
+
+      return {
+        success: true,
+        message: 'Bill payment completed successfully',
+        bill: data.bill,
+        transaction: data.transaction,
+      };
+    } catch (err) {
+      console.error('❌ Bill payment error:', err);
+      return {
+        success: false,
+        message: 'Network error processing bill payment',
+      };
+    }
   };
 
   const value = {

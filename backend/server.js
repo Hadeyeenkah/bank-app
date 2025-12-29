@@ -9,6 +9,7 @@ dotenv.config();
 const { connectDB, isDBConnected } = require("./src/config/database");
 const authRoutes = require("./src/routes/authRoutes");
 const transactionRoutes = require("./src/routes/transactionRoutes");
+const billRoutes = require("./src/routes/billRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const { seedDemoUsers } = require("./src/utils/seedDemoUsers");
 
@@ -96,6 +97,7 @@ app.get("/", (req, res) => {
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/bills", billRoutes);
 app.use("/api/admin", adminRoutes);
 
 // 404 handler
