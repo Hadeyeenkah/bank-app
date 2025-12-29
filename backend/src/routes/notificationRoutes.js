@@ -10,7 +10,7 @@ router.get('/stream', protect, (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Don't set Access-Control-Allow-Origin here - let the main CORS middleware handle it
 
     // Send initial connection message
     res.write(`data: ${JSON.stringify({ message: 'Connected to notification stream' })}\n\n`);

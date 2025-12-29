@@ -121,10 +121,12 @@ exports.payBill = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Bill payment error:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       status: 'error',
       message: 'Server error processing bill payment',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 };
@@ -149,14 +151,19 @@ exports.getBillPayments = async (req, res) => {
       query.status = status;
     }
 
+    // Add better error handling for empty collections
     const bills = await Bill.find(query)
       .populate('transactionId')
       .sort({ paymentDate: -1 })
       .limit(parseInt(limit))
       .skip(parseInt(skip))
-      .lean();
+      .lean()
+      .catch(err => {
+        console.log('Error fetching bills (non-fatal):', err.message);
+        return [];
+      });
 
-    const total = await Bill.countDocuments(query);
+    const total = await Bill.countDocuments(query).catch(() => 0);
 
     res.json({
       status: 'success',
@@ -169,10 +176,12 @@ exports.getBillPayments = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Get bills error:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       status: 'error',
       message: 'Server error fetching bill payments',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 };
