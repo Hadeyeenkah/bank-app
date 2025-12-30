@@ -14,6 +14,16 @@ function AdminPage() {
   const [displayPendingApprovals, setDisplayPendingApprovals] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [newTransaction, setNewTransaction] = useState({
+    description: '',
+    amount: '',
+    category: 'Other',
+    accountType: 'checking',
+    date: new Date().toISOString().split('T')[0],
+    note: '',
+  });
 
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
 
@@ -151,6 +161,68 @@ function AdminPage() {
     navigate('/login');
   };
 
+  const handleAddTransaction = async () => {
+    if (!selectedUserId || !newTransaction.description || !newTransaction.amount) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/admin/users/${selectedUserId}/transactions`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newTransaction,
+          amount: parseFloat(newTransaction.amount),
+        }),
+      });
+
+      if (res.ok) {
+        setShowAddTransactionModal(false);
+        setNewTransaction({
+          description: '',
+          amount: '',
+          category: 'Other',
+          accountType: 'checking',
+          date: new Date().toISOString().split('T')[0],
+          note: '',
+        });
+        setSelectedUserId('');
+        await fetchAdminData();
+      } else {
+        const error = await res.json();
+        alert(`Failed to add transaction: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Add transaction error:', err);
+      alert('Error adding transaction');
+    }
+  };
+
+  const handleDeleteTransaction = async (userId, transactionId) => {
+    if (!confirm('Are you sure you want to delete this transaction?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/admin/users/${userId}/transactions/${transactionId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        await fetchAdminData();
+      } else {
+        const error = await res.json();
+        alert(`Failed to delete transaction: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Delete transaction error:', err);
+      alert('Error deleting transaction');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
       <header className="border-b border-white/5 bg-slate-900/50 backdrop-blur">
@@ -210,6 +282,12 @@ function AdminPage() {
             className={`pb-3 text-sm font-semibold transition ${activeTab === 'approvals' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
           >
             Pending Approvals {displayPendingApprovals.length > 0 && `(${displayPendingApprovals.length})`}
+          </button>
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`pb-3 text-sm font-semibold transition ${activeTab === 'transactions' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
+          >
+            Transaction Management
           </button>
           <button
             onClick={() => setActiveTab('activity')}
@@ -376,6 +454,68 @@ function AdminPage() {
           </div>
         )}
 
+        {/* Transaction Management Tab */}
+        {activeTab === 'transactions' && (
+          <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Transaction Management</h2>
+              <button
+                onClick={() => setShowAddTransactionModal(true)}
+                className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+              >
+                + Add Transaction
+              </button>
+            </div>
+            {displayUsers.length === 0 ? (
+              <p className="py-8 text-center text-slate-400">No users found</p>
+            ) : (
+              <div className="space-y-6">
+                {displayUsers.map((user) => (
+                  <div key={user.id} className="rounded-xl border border-white/5 bg-white/5 p-6">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500" />
+                      <div>
+                        <h3 className="font-semibold text-white">{user.name}</h3>
+                        <p className="text-xs text-slate-400">{user.email}</p>
+                      </div>
+                    </div>
+                    {user.transactions && user.transactions.length > 0 ? (
+                      <div className="space-y-2">
+                        {user.transactions.slice(0, 5).map((transaction, idx) => (
+                          <div
+                            key={`${transaction.id}-${idx}`}
+                            className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-4"
+                          >
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold text-white">{transaction.description}</div>
+                              <div className="text-xs text-slate-400">
+                                {transaction.date} • {transaction.category} • {transaction.accountType}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className={`text-lg font-semibold ${transaction.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
+                              </div>
+                              <button
+                                onClick={() => handleDeleteTransaction(user.id, transaction.id)}
+                                className="rounded-lg border border-red-500/50 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/10"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="py-4 text-center text-sm text-slate-400">No transactions</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Recent Activity Tab */}
         {activeTab === 'activity' && (
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
@@ -413,6 +553,138 @@ function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Add Transaction Modal */}
+      {showAddTransactionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-900 p-8">
+            <h2 className="mb-6 text-2xl font-semibold text-white">Add Transaction</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-200">Select User</label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                  required
+                >
+                  <option value="">Choose a user...</option>
+                  {displayUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Description</label>
+                  <input
+                    type="text"
+                    value={newTransaction.description}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                    placeholder="e.g., Salary Deposit, Grocery Store"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Amount (use - for debit)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newTransaction.amount}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                    placeholder="150.00 or -150.00"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Category</label>
+                  <select
+                    value={newTransaction.category}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                  >
+                    <option value="Income">Income</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Dining">Dining</option>
+                    <option value="Bills">Bills</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Account Type</label>
+                  <select
+                    value={newTransaction.accountType}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, accountType: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                  >
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Date (Backdate)</label>
+                  <input
+                    type="date"
+                    value={newTransaction.date}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-200">Note (Optional)</label>
+                <textarea
+                  value={newTransaction.note}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, note: e.target.value })}
+                  placeholder="Additional details..."
+                  rows="2"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleAddTransaction}
+                  className="flex-1 rounded-xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+                >
+                  Add Transaction
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddTransactionModal(false);
+                    setNewTransaction({
+                      description: '',
+                      amount: '',
+                      category: 'Other',
+                      accountType: 'checking',
+                      date: new Date().toISOString().split('T')[0],
+                      note: '',
+                    });
+                    setSelectedUserId('');
+                  }}
+                  className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-white hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

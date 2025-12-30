@@ -126,4 +126,102 @@ router.get('/pending-approvals', protect, requireRole('admin'), async (req, res)
   }
 });
 
+// Add transaction for a user (with backdating support)
+router.post('/users/:userId/transactions', protect, requireRole('admin'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { description, amount, category, accountType, date, note } = req.body;
+
+    if (!description || amount === undefined) {
+      return res.status(400).json({ message: 'Description and amount are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Create transaction with custom date (backdating)
+    const transaction = await Transaction.create({
+      userId: userId,
+      description,
+      amount: parseFloat(amount),
+      category: category || 'Other',
+      accountType: accountType || 'checking',
+      status: 'completed',
+      date: date ? new Date(date) : new Date(),
+      note: note || '',
+      transferType: 'admin_adjustment',
+      reference: `ADMIN-${userId}-${Date.now()}`,
+    });
+
+    // Update user balance
+    const accountIndex = user.accounts.findIndex(a => a.accountType === accountType);
+    if (accountIndex !== -1) {
+      user.accounts[accountIndex].balance += parseFloat(amount);
+    } else {
+      user.accounts.push({
+        accountType: accountType || 'checking',
+        accountNumber: `${accountType.toUpperCase()}-${Date.now()}`,
+        balance: parseFloat(amount),
+      });
+    }
+
+    user.balance = (user.balance || 0) + parseFloat(amount);
+    user.markModified('accounts');
+    await user.save();
+
+    res.status(201).json({
+      message: 'Transaction added successfully',
+      transaction: {
+        id: transaction._id,
+        description: transaction.description,
+        amount: transaction.amount,
+        category: transaction.category,
+        accountType: transaction.accountType,
+        date: transaction.date,
+        status: transaction.status,
+      },
+    });
+  } catch (error) {
+    console.error('Add transaction error:', error);
+    res.status(500).json({ message: 'Server error adding transaction' });
+  }
+});
+
+// Delete transaction
+router.delete('/users/:userId/transactions/:transactionId', protect, requireRole('admin'), async (req, res) => {
+  try {
+    const { userId, transactionId } = req.params;
+
+    const transaction = await Transaction.findOne({ _id: transactionId, userId: userId });
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Reverse the balance change
+    const accountIndex = user.accounts.findIndex(a => a.accountType === transaction.accountType);
+    if (accountIndex !== -1) {
+      user.accounts[accountIndex].balance -= transaction.amount;
+    }
+
+    user.balance = (user.balance || 0) - transaction.amount;
+    user.markModified('accounts');
+    await user.save();
+
+    // Delete the transaction
+    await Transaction.findByIdAndDelete(transactionId);
+
+    res.json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    console.error('Delete transaction error:', error);
+    res.status(500).json({ message: 'Server error deleting transaction' });
+  }
+});
+
 module.exports = router;
