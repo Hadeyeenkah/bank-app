@@ -90,8 +90,8 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Health check endpoint
-app.get("/", (req, res) => {
+// Health check endpoint (moved to /api/health to avoid conflict with frontend)
+app.get("/api/health", (req, res) => {
   res.json({
     status: "success",
     message: "SecureBank API is running",
@@ -114,10 +114,18 @@ if (process.env.NODE_ENV === 'production') {
   const path = require('path');
   const frontendBuildPath = path.join(__dirname, '../frontend/build');
   
+  // Serve static files from React build
   app.use(express.static(frontendBuildPath));
   
   // Serve index.html for all non-API routes (React Router)
   app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({
+        status: "error",
+        message: "API route not found"
+      });
+    }
     res.sendFile(path.join(frontendBuildPath, 'index.html'));
   });
 } else {
