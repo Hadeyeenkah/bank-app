@@ -6,7 +6,7 @@ import '../App.css';
 
 function CardsPage() {
   const { currentUser } = useBankContext();
-  const [cardLocked, setCardLocked] = useState(false);
+  const [cardLocked, setCardLocked] = useState(true);
   const [internationalEnabled, setInternationalEnabled] = useState(true);
   const [onlineEnabled, setOnlineEnabled] = useState(true);
   const [contactlessEnabled, setContactlessEnabled] = useState(true);
@@ -63,6 +63,10 @@ function CardsPage() {
         <div className="mb-8 grid gap-6 md:grid-cols-2">
           {/* Card Display */}
           <div className="card primary">
+            <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              <div className="font-semibold text-amber-100">Card on temporary hold</div>
+              <div className="text-amber-50/90">We spotted unusual activity from a new location. Your card is paused to prevent fraudulent swipes. You can unlock to resume spending, or contact support if you did not attempt these charges.</div>
+            </div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-xs uppercase tracking-[0.2em] text-cyan-100">Debit Card</span>
               <div className={`rounded-full px-3 py-1 text-xs ${cardLocked ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>

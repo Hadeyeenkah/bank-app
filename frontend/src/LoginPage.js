@@ -9,6 +9,11 @@ function LoginPage() {
   const { login } = useBankContext();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +28,40 @@ function LoginPage() {
       }
     } else {
       setError(result.message || 'Invalid email or password');
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+      const res = await fetch(`${apiBase}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setForgotMessage(data.message || 'Password reset link has been sent to your email.');
+        setForgotEmail('');
+        // Auto-close modal after 3 seconds
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setForgotMessage('');
+        }, 5000);
+      } else {
+        setForgotError(data.message || 'Failed to send reset link');
+      }
+    } catch (err) {
+      setForgotError('Network error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -77,7 +116,13 @@ function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm text-slate-200">
                   <label htmlFor="login-password">Password</label>
-                  <button type="button" className="text-cyan-200 hover:text-cyan-100">Forgot?</button>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-cyan-200 hover:text-cyan-100"
+                  >
+                    Forgot?
+                  </button>
                 </div>
                 <input 
                   id="login-password" 
@@ -109,6 +154,67 @@ function LoginPage() {
           </div>
         </div>
       </main>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-xl">
+            <button
+              onClick={() => {
+                setShowForgotPassword(false);
+                setForgotEmail('');
+                setForgotMessage('');
+                setForgotError('');
+              }}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-200"
+            >
+              ✕
+            </button>
+            
+            <h3 className="text-xl font-semibold text-white">Reset Password</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+
+            <form onSubmit={handleForgotPassword} className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm text-slate-200" htmlFor="forgot-email">
+                  Email Address
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              {forgotError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                  {forgotError}
+                </div>
+              )}
+
+              {forgotMessage && (
+                <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-400">
+                  {forgotMessage}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-400/30 transition hover:translate-y-0.5 disabled:opacity-50"
+              >
+                {isSubmitting ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

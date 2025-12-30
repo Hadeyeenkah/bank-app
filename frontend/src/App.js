@@ -14,6 +14,7 @@ import CardsPage from './pages/CardsPage';
 import SecurityPage from './pages/SecurityPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AboutPage from './pages/AboutPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import AuroraBankLogo from './components/AuroraBankLogo';
 import Footer from './components/Footer';
 import './App.css';
@@ -65,6 +66,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/transfer" element={<RequireAuth><TransferPage /></RequireAuth>} />
         <Route path="/wire-transfer" element={<RequireAuth><WireTransferPage /></RequireAuth>} />

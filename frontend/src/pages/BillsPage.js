@@ -338,7 +338,16 @@ function BillsPage() {
 
         {/* Bill Payment History */}
         <div className="mt-12">
-          <h2 className="text-2xl font-semibold text-white mb-6">Recent Payments</h2>
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h2 className="text-2xl font-semibold text-white">Recent Payments</h2>
+            <Link
+              to="/transactions"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-white/10"
+            >
+              View transaction history
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
           {billHistory.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center">
               <p className="text-slate-400">No bill payments yet</p>

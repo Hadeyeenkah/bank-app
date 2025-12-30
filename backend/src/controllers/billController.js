@@ -6,11 +6,15 @@ const User = require('../models/User');
 // Pay a bill - creates both bill record and transaction
 exports.payBill = async (req, res) => {
   try {
+    console.log('📝 Bill payment request:', req.body);
     const { payee, amount, category, accountNumber, fromAccount, note, dueDate } = req.body;
     const userId = req.userId;
 
+    console.log('👤 User ID:', userId);
+
     // Validate user ID
     if (!userId) {
+      console.log('❌ User not authenticated');
       return res.status(401).json({
         status: 'error',
         message: 'User not authenticated',
@@ -19,26 +23,44 @@ exports.payBill = async (req, res) => {
 
     // Validate required fields
     if (!payee || !amount || amount <= 0) {
+      console.log('❌ Invalid payee or amount');
       return res.status(400).json({
         status: 'error',
         message: 'Payee name and valid amount are required',
       });
     }
 
+    console.log('✅ Validation passed, fetching user...');
+
+    console.log('✅ Validation passed, fetching user...');
+
     // Get user to check balance
     const user = await User.findById(userId);
     if (!user) {
+      console.log('❌ User not found');
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
+    console.log('✅ User found:', user.email);
+    console.log('💰 User balance:', user.balance);
+    console.log('📊 User accounts:', user.accounts);
+
+    // Initialize accounts array if it doesn't exist
+    if (!user.accounts || user.accounts.length === 0) {
+      user.accounts = [
+        { accountType: 'checking', balance: user.balance || 0 },
+        { accountType: 'savings', balance: 0 }
+      ];
+    }
+
     const accountBalance = fromAccount === 'savings' 
-      ? user.accounts?.find(a => a.accountType === 'savings')?.balance 
-      : user.accounts?.find(a => a.accountType === 'checking')?.balance;
+      ? user.accounts?.find(a => a.accountType === 'savings')?.balance || 0
+      : user.accounts?.find(a => a.accountType === 'checking')?.balance || 0;
     
-    if (accountBalance === undefined || accountBalance < amount) {
+    if (accountBalance < amount) {
       return res.status(400).json({
         status: 'error',
-        message: 'Insufficient funds for this bill payment',
+        message: `Insufficient funds in ${fromAccount}. Available: $${accountBalance.toFixed(2)}`,
       });
     }
 
@@ -79,22 +101,16 @@ exports.payBill = async (req, res) => {
     });
 
     // Update user account balance
-    if (fromAccount === 'savings') {
-      user.accounts = user.accounts.map(acc =>
-        acc.accountType === 'savings'
-          ? { ...acc, balance: acc.balance - amount }
-          : acc
-      );
-    } else {
-      user.accounts = user.accounts.map(acc =>
-        acc.accountType === 'checking'
-          ? { ...acc, balance: acc.balance - amount }
-          : acc
-      );
+    const accountIndex = user.accounts.findIndex(a => a.accountType === fromAccount);
+    if (accountIndex !== -1) {
+      user.accounts[accountIndex].balance -= amount;
     }
 
     // Update overall balance
     user.balance = (user.balance || 0) - amount;
+    
+    // Mark accounts as modified for Mongoose to save properly
+    user.markModified('accounts');
     await user.save();
 
     res.status(201).json({

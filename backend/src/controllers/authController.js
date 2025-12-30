@@ -416,3 +416,102 @@ exports.verify2FA = async (req, res) => {
     res.status(401).json({ message: 'Invalid or expired challenge' });
   }
 };
+
+// Forgot Password - Send reset email
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    // For security, always return success even if user doesn't exist
+    if (!user) {
+      return res.json({ 
+        message: 'If an account exists with that email, a password reset link has been sent.' 
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    user.passwordResetToken = resetTokenHash;
+    user.passwordResetExpires = resetTokenExpires;
+    await user.save();
+
+    // Create reset link
+    const origin = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
+    const resetLink = `${origin}/reset-password?token=${resetToken}`;
+
+    // Try to send email
+    try {
+      const { sendPasswordResetEmail } = require('../utils/email');
+      await sendPasswordResetEmail(user.email, resetLink, user.firstName);
+      console.log('📧 Password reset email sent to:', user.email);
+    } catch (emailErr) {
+      console.log('⚠️  Email service unavailable:', emailErr.message);
+      // In development, log the link
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🔗 Reset link:', resetLink);
+      }
+    }
+
+    res.json({ 
+      message: 'If an account exists with that email, a password reset link has been sent.',
+      resetLink: process.env.NODE_ENV === 'production' ? undefined : resetLink
+    });
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({ message: 'Server error. Please try again later.' });
+  }
+};
+
+// Reset Password - Verify token and update password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    // Hash the token to match what's stored
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with valid reset token
+    const user = await User.findOne({
+      passwordResetToken: resetTokenHash,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    // Update password and clear reset token
+    user.password = passwordHash;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    console.log('✅ Password reset successful for:', user.email);
+
+    res.json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({ message: 'Server error. Please try again later.' });
+  }
+};

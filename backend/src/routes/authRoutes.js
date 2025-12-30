@@ -30,6 +30,10 @@ router.get('/profile', protect, authController.getProfile);
 router.put('/profile', protect, authController.updateProfile);
 router.post('/change-password', protect, authController.changePassword);
 
+// Password reset routes
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+
 // 2FA routes
 router.post('/enable-2fa', protect, authController.enable2FA);
 router.post('/confirm-2fa', protect, authController.confirm2FA);
