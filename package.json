@@ -1,0 +1,26 @@
+{
+  "name": "aurora-bank",
+  "version": "1.0.0",
+  "description": "Aurora Bank - Full Stack Banking Application",
+  "main": "server.js",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm start",
+    "client": "cd frontend && npm start",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
+    "server:dev": "cd backend && npm run dev",
+    "build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "heroku-postbuild": "npm run build"
+  },
+  "keywords": [
+    "banking",
+    "react",
+    "express",
+    "full-stack"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.1"
+  }
+}

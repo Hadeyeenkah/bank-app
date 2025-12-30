@@ -68,7 +68,8 @@ function Dashboard() {
 
   // Real-time notifications: try SSE stream, fall back to gentle client-side ticks
   useEffect(() => {
-    const notificationsUrl = process.env.REACT_APP_NOTIFICATIONS_URL || 'http://localhost:5001/api/notifications/stream';
+    const base = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+    const notificationsUrl = `${base}/notifications/stream`;
     let source;
     let interval;
 

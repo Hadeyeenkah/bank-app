@@ -16,6 +16,11 @@ const { seedDemoUsers } = require("./src/utils/seedDemoUsers");
 
 const app = express();
 
+// Trust proxy for production environments (Render, Heroku, etc.)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Security headers
 app.use(helmet());
 
@@ -102,13 +107,28 @@ app.use("/api/bills", billRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    status: "error",
-    message: "Route not found"
+// ============================================
+// Serve frontend build in production
+// ============================================
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  const frontendBuildPath = path.join(__dirname, '../frontend/build');
+  
+  app.use(express.static(frontendBuildPath));
+  
+  // Serve index.html for all non-API routes (React Router)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
   });
-});
+} else {
+  // 404 handler for development
+  app.use((req, res) => {
+    res.status(404).json({
+      status: "error",
+      message: "Route not found"
+    });
+  });
+}
 
 // Global error handler
 app.use((err, req, res, next) => {
