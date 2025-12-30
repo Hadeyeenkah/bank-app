@@ -151,19 +151,38 @@ exports.getBillPayments = async (req, res) => {
       query.status = status;
     }
 
-    // Add better error handling for empty collections
-    const bills = await Bill.find(query)
-      .populate('transactionId')
-      .sort({ paymentDate: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip))
-      .lean()
-      .catch(err => {
-        console.log('Error fetching bills (non-fatal):', err.message);
-        return [];
+    // Check if database is connected
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Database not ready, returning empty bill list');
+      return res.json({
+        status: 'success',
+        bills: [],
+        pagination: {
+          total: 0,
+          limit: parseInt(limit),
+          skip: parseInt(skip),
+        },
       });
+    }
 
-    const total = await Bill.countDocuments(query).catch(() => 0);
+    // Add better error handling for empty collections
+    let bills = [];
+    let total = 0;
+    
+    try {
+      bills = await Bill.find(query)
+        .populate('transactionId')
+        .sort({ paymentDate: -1 })
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        .lean();
+      
+      total = await Bill.countDocuments(query);
+    } catch (dbError) {
+      console.log('Database query error (non-fatal):', dbError.message);
+      // Return empty result instead of failing
+    }
 
     res.json({
       status: 'success',

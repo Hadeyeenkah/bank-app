@@ -251,12 +251,39 @@ exports.logout = async (_req, res) => {
 // Get profile of authenticated user
 exports.getProfile = async (req, res) => {
   try {
+    // Check MongoDB connection state
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.error('❌ MongoDB not connected. State:', mongoose.connection.readyState);
+      return res.status(503).json({ 
+        message: 'Database connection unavailable',
+        details: 'MongoDB is not connected. Please try again later.'
+      });
+    }
+
+    // Validate req.userId exists
+    if (!req.userId) {
+      console.error('❌ No userId in request. Auth middleware may have failed.');
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    console.log('🔍 Fetching profile for user:', req.userId);
     const user = await User.findById(req.userId).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    if (!user) {
+      console.error('❌ User not found in database:', req.userId);
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('✅ Profile fetched successfully for:', user.email);
     res.json({ user });
   } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Get profile error:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

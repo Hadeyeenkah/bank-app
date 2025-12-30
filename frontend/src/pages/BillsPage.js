@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useBankContext } from '../context/BankContext';
@@ -34,6 +35,11 @@ function BillsPage() {
   // Fetch bill payment history
   useEffect(() => {
     const fetchBillHistory = async () => {
+      // Only fetch if user is authenticated
+      if (!currentUser) {
+        return;
+      }
+      
       try {
         const res = await fetch(`${apiBase}/bills?limit=10`, {
           method: 'GET',
@@ -42,13 +48,17 @@ function BillsPage() {
         if (res.ok) {
           const data = await res.json();
           setBillHistory(data.bills || []);
+        } else if (res.status === 500) {
+          console.log('Server error fetching bills - may be initial setup');
+          setBillHistory([]);
         }
       } catch (err) {
         console.log('Failed to fetch bill history:', err);
+        setBillHistory([]);
       }
     };
     fetchBillHistory();
-  }, [apiBase]);
+  }, [apiBase, currentUser]);
 
   // Handle flash message from successful transfer
   useEffect(() => {
