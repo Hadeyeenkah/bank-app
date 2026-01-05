@@ -251,12 +251,24 @@ function Dashboard() {
   const handleSaveProfile = async () => {
     setSaveError('');
     setSavingProfile(true);
-    const result = await updateProfile(formData);
+    
+    // Prepare profile data
+    const profileDataToSave = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      avatarUrl: formData.avatarUrl, // Include avatar in profile update
+    };
+    
+    const result = await updateProfile(profileDataToSave);
     setSavingProfile(false);
+    
     if (!result.success) {
       setSaveError(result.message || 'Update failed');
       return;
     }
+    
     if (result.user) {
       setFormData({
         firstName: result.user.firstName || '',
@@ -266,6 +278,7 @@ function Dashboard() {
         avatarUrl: result.user.avatarUrl || '',
       });
     }
+    
     setEditMode(false);
     setShowSettingsModal(false);
   };
@@ -273,9 +286,25 @@ function Dashboard() {
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Validate file size (max 500KB for data URL storage)
+    if (file.size > 500000) {
+      setSaveError('Image is too large. Please choose a file smaller than 500KB.');
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setSaveError('Please select a valid image file.');
+      return;
+    }
+    
     const reader = new FileReader();
     reader.onload = () => {
       setFormData((prev) => ({ ...prev, avatarUrl: reader.result }));
+    };
+    reader.onerror = () => {
+      setSaveError('Failed to read image file.');
     };
     reader.readAsDataURL(file);
   };
@@ -745,6 +774,13 @@ function Dashboard() {
 
             {/* Modal Content */}
             <div className="p-6 space-y-6">
+              {/* Error Message */}
+              {saveError && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+                  {saveError}
+                </div>
+              )}
+              
               {/* Profile Picture Section */}
               <div className="flex flex-col items-center gap-4">
                 {formData.avatarUrl ? (
@@ -762,6 +798,7 @@ function Dashboard() {
                   Change Picture
                   <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                 </label>
+                <p className="text-xs text-slate-400">JPG, PNG up to 500KB</p>
               </div>
 
               {/* Personal Information */}
