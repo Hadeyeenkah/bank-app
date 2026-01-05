@@ -12,11 +12,7 @@ function Dashboard() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Deposit received', detail: 'Salary deposit of $5,200', time: new Date(Date.now() - 2 * 60 * 1000).toISOString(), read: false },
-    { id: 2, title: 'Card purchase', detail: 'Spent $152.43 at Grocery Store', time: new Date(Date.now() - 30 * 60 * 1000).toISOString(), read: false },
-    { id: 3, title: 'Login', detail: 'New sign-in from Chrome on Linux', time: new Date(Date.now() - 60 * 60 * 1000).toISOString(), read: false },
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -106,71 +102,60 @@ function Dashboard() {
     });
   }, [currentUser]);
 
-  // Real-time notifications: try SSE stream, fall back to gentle client-side ticks
+  // Generate real notifications from user's actual transactions
   useEffect(() => {
-    const base = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
-    const notificationsUrl = `${base}/notifications/stream`;
-    let source;
-    let interval;
+    if (!currentUser) return;
 
-    const pushLocal = (payload) => {
-      setNotifications((prev) => {
-        const nextId = (prev[0]?.id || 0) + 1;
-        const updated = [
-          {
-            id: nextId,
-            read: false,
-            time: new Date().toISOString(),
-            ...payload,
-          },
-          ...prev,
-        ];
-        return updated.slice(0, 10);
+    const realNotifications = [];
+
+    // Get recent transactions (last 10)
+    if (currentUser.transactions && currentUser.transactions.length > 0) {
+      const recentTransactions = currentUser.transactions.slice(0, 10);
+      
+      recentTransactions.forEach((tx) => {
+        let icon = '💳';
+        if (tx.amount > 0) icon = '💰';
+        else if (tx.category === 'Bills') icon = '📄';
+        else if (tx.category === 'Transfer') icon = '↗️';
+        else if (tx.category === 'Shopping') icon = '🛍️';
+        else if (tx.category === 'Dining') icon = '🍽️';
+
+        const title = tx.status === 'pending' 
+          ? `Pending: ${tx.description}`
+          : tx.status === 'rejected'
+          ? `Rejected: ${tx.description}`
+          : tx.description;
+
+        realNotifications.push({
+          id: `tx-${tx.id}`,
+          title: title,
+          detail: `${tx.amount < 0 ? 'Spent' : 'Received'} $${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          time: new Date(tx.date).toISOString(),
+          read: false,
+          icon: icon,
+        });
       });
-    };
-
-    const startFallback = () => {
-      if (interval) return;
-      interval = setInterval(() => {
-        const samples = [
-          { title: 'Payment processed', detail: 'Bill payment of $120 succeeded' },
-          { title: 'Card authorization', detail: 'Pending card auth $32.10 at Coffee Shop' },
-          { title: 'Transfer completed', detail: 'You sent $250 to Alex Smith' },
-          { title: 'Deposit received', detail: 'ACH deposit of $1,200 cleared' },
-          { title: 'ATM withdrawal', detail: 'Withdrew $200 at Main St. ATM' },
-        ];
-        const sample = samples[Math.floor(Math.random() * samples.length)];
-        pushLocal(sample);
-      }, 12000);
-    };
-
-    try {
-      source = new EventSource(notificationsUrl, { withCredentials: true });
-      source.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          pushLocal({
-            title: data.title || 'Account update',
-            detail: data.detail || data.message || 'New activity on your account',
-            time: data.time || new Date().toISOString(),
-          });
-        } catch {
-          pushLocal({ title: 'Notification', detail: event.data, time: new Date().toISOString() });
-        }
-      };
-      source.onerror = () => {
-        source?.close();
-        startFallback();
-      };
-    } catch {
-      startFallback();
     }
 
-    return () => {
-      source?.close();
-      if (interval) clearInterval(interval);
-    };
-  }, []);
+    // Add pending transactions
+    if (currentUser.pendingTransactions && currentUser.pendingTransactions.length > 0) {
+      currentUser.pendingTransactions.slice(0, 5).forEach((tx) => {
+        realNotifications.push({
+          id: `pending-${tx.id}`,
+          title: `Pending Approval`,
+          detail: `${tx.description} - $${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          time: new Date(tx.date || Date.now()).toISOString(),
+          read: false,
+          icon: '⏱',
+        });
+      });
+    }
+
+    // Sort by time (most recent first)
+    realNotifications.sort((a, b) => new Date(b.time) - new Date(a.time));
+    
+    setNotifications(realNotifications.slice(0, 10)); // Keep only top 10
+  }, [currentUser?.transactions, currentUser?.pendingTransactions]);
 
   // Handle flash notification coming from navigation state (e.g., transfer success)
   useEffect(() => {
@@ -746,23 +731,57 @@ function Dashboard() {
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
             <h3 className="mb-4 text-lg font-semibold text-white">Spending This Month</h3>
             <div className="space-y-4">
-              {[
-                { category: 'Groceries', amount: 842.50, percent: 28 },
-                { category: 'Dining', amount: 520.00, percent: 17 },
-                { category: 'Transport', amount: 380.00, percent: 13 },
-                { category: 'Shopping', amount: 650.00, percent: 22 },
-                { category: 'Other', amount: 607.50, percent: 20 },
-              ].map((item) => (
-                <div key={item.category}>
-                  <div className="mb-2 flex justify-between text-sm">
-                    <span className="text-slate-200">{item.category}</span>
-                    <span className="text-white">${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+              {(() => {
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+                
+                // Calculate spending by category for current month
+                const spendingByCategory = {};
+                let totalSpending = 0;
+                
+                if (currentUser?.transactions && currentUser.transactions.length > 0) {
+                  currentUser.transactions.forEach((tx) => {
+                    const txDate = new Date(tx.date);
+                    // Only include expenses (negative amounts) from current month
+                    if (tx.amount < 0 && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+                      const category = tx.category || 'Other';
+                      spendingByCategory[category] = (spendingByCategory[category] || 0) + Math.abs(tx.amount);
+                      totalSpending += Math.abs(tx.amount);
+                    }
+                  });
+                }
+                
+                // If no transactions this month, show zero
+                if (totalSpending === 0) {
+                  return (
+                    <div className="text-slate-400 text-sm">
+                      <p>No spending recorded this month</p>
+                    </div>
+                  );
+                }
+                
+                // Convert to array and sort by amount descending
+                const categories = Object.entries(spendingByCategory)
+                  .map(([cat, amt]) => ({
+                    category: cat,
+                    amount: amt,
+                    percent: Math.round((amt / totalSpending) * 100)
+                  }))
+                  .sort((a, b) => b.amount - a.amount);
+                
+                return categories.map((item) => (
+                  <div key={item.category}>
+                    <div className="mb-2 flex justify-between text-sm">
+                      <span className="text-slate-200">{item.category}</span>
+                      <span className="text-white">${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-cyan-400" style={{ width: `${item.percent}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 rounded-full bg-white/10">
-                    <div className="h-full rounded-full bg-cyan-400" style={{ width: `${item.percent}%` }} />
-                  </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
 
