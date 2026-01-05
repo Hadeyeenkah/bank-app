@@ -15,119 +15,99 @@ function NotificationsPage() {
     marketing: false,
   });
 
-  // Initialize with some historical notifications
+  // Generate real notifications from user's actual account activity
   useEffect(() => {
-    const initialNotifications = [
-      {
-        id: Date.now() - 1000000,
-        type: 'transaction',
-        title: 'Salary Deposit',
-        detail: `Deposit of $5,200.00 received`,
-        time: new Date(Date.now() - 3600000).toISOString(),
-        read: false,
-        icon: '💰',
-      },
-      {
-        id: Date.now() - 2000000,
-        type: 'security',
-        title: 'New Login Detected',
-        detail: 'Login from Chrome on Linux, Delaware, US',
-        time: new Date(Date.now() - 7200000).toISOString(),
-        read: false,
-        icon: '🔐',
-      },
-      {
-        id: Date.now() - 3000000,
-        type: 'transaction',
-        title: 'Card Purchase',
-        detail: 'Spent $152.43 at Grocery Store',
-        time: new Date(Date.now() - 86400000).toISOString(),
-        read: true,
-        icon: '💳',
-      },
-      {
-        id: Date.now() - 4000000,
-        type: 'transaction',
-        title: 'Transfer Completed',
-        detail: 'You sent $250.00 to Alex Smith',
-        time: new Date(Date.now() - 172800000).toISOString(),
-        read: true,
-        icon: '↗️',
-      },
-      {
-        id: Date.now() - 5000000,
-        type: 'account',
-        title: 'Monthly Statement Available',
-        detail: 'Your December statement is now available',
-        time: new Date(Date.now() - 259200000).toISOString(),
-        read: true,
-        icon: '📄',
-      },
-      {
-        id: Date.now() - 6000000,
-        type: 'security',
-        title: 'Password Changed',
-        detail: 'Your password was successfully updated',
-        time: new Date(Date.now() - 345600000).toISOString(),
-        read: true,
-        icon: '🔑',
-      },
-    ];
-    setNotifications(initialNotifications);
-  }, []);
+    if (!currentUser) return;
 
-  // Real-time notification generator simulating account activity
+    const realNotifications = [];
+
+    // Transactions - show actual transaction history
+    if (currentUser.transactions && currentUser.transactions.length > 0) {
+      currentUser.transactions.forEach((tx) => {
+        let icon = '💳';
+        let typeCategory = 'transaction';
+
+        if (tx.amount > 0) icon = '💰';
+        else if (tx.category === 'Bills') icon = '📄';
+        else if (tx.category === 'Transfer') icon = '↗️';
+        else if (tx.category === 'Shopping') icon = '🛍️';
+        else if (tx.category === 'Dining') icon = '🍽️';
+
+        const title = tx.status === 'pending' 
+          ? `${tx.description} - Pending`
+          : tx.status === 'rejected'
+          ? `${tx.description} - Rejected`
+          : tx.description;
+
+        realNotifications.push({
+          id: `tx-${tx.id}`,
+          type: typeCategory,
+          title: title,
+          detail: `${tx.amount < 0 ? 'Spent' : 'Received'} $${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} • ${tx.category}`,
+          time: new Date(tx.date).toISOString(),
+          read: false,
+          icon: icon,
+          status: tx.status,
+        });
+      });
+    }
+
+    // Pending transactions
+    if (currentUser.pendingTransactions && currentUser.pendingTransactions.length > 0) {
+      currentUser.pendingTransactions.forEach((tx) => {
+        realNotifications.push({
+          id: `pending-${tx.id}`,
+          type: 'transaction',
+          title: `Pending: ${tx.description}`,
+          detail: `$${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} awaiting approval`,
+          time: new Date(tx.date || Date.now()).toISOString(),
+          read: false,
+          icon: '⏱',
+          status: 'pending',
+        });
+      });
+    }
+
+    // Account alerts
+    realNotifications.push({
+      id: 'account-balance',
+      type: 'account',
+      title: 'Account Balance Updated',
+      detail: `Current balance: $${(currentUser.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      time: new Date().toISOString(),
+      read: false,
+      icon: '💵',
+    });
+
+    // Checking/Savings breakdown
+    realNotifications.push({
+      id: 'account-breakdown',
+      type: 'account',
+      title: 'Account Details',
+      detail: `Checking: $${(currentUser.checking || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} | Savings: $${(currentUser.savings || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      time: new Date().toISOString(),
+      read: false,
+      icon: '📊',
+    });
+
+    // Sort by time (most recent first)
+    realNotifications.sort((a, b) => new Date(b.time) - new Date(a.time));
+    
+    setNotifications(realNotifications);
+  }, [currentUser]);
+
+  // Real-time notification polling - fetch new activity every 30 seconds
   useEffect(() => {
-    const notificationTemplates = {
-      transaction: [
-        { title: 'Payment Processed', detail: 'Bill payment of $120.00 succeeded', icon: '✅' },
-        { title: 'Card Authorization', detail: 'Pending card auth $32.10 at Coffee Shop', icon: '☕' },
-        { title: 'Transfer Initiated', detail: 'Transfer of $500.00 to Savings account', icon: '💸' },
-        { title: 'Direct Deposit', detail: 'Deposit of $3,200.00 received', icon: '💰' },
-        { title: 'ATM Withdrawal', detail: 'Withdrew $200.00 at Main Street ATM', icon: '🏧' },
-        { title: 'Online Purchase', detail: 'Spent $89.99 at Amazon.com', icon: '📦' },
-      ],
-      security: [
-        { title: 'Login Alert', detail: 'New sign-in from Safari on iPhone', icon: '🔐' },
-        { title: 'Security Check', detail: 'Account security scan completed - all clear', icon: '🛡️' },
-        { title: '2FA Enabled', detail: 'Two-factor authentication is now active', icon: '🔒' },
-        { title: 'Unusual Activity', detail: 'Login attempt from unknown location blocked', icon: '⚠️' },
-      ],
-      account: [
-        { title: 'Interest Earned', detail: 'Earned $12.45 in savings interest this month', icon: '📈' },
-        { title: 'Account Update', detail: 'Your profile information was updated', icon: '👤' },
-        { title: 'Reward Points', detail: 'You earned 150 reward points', icon: '⭐' },
-        { title: 'Service Message', detail: 'Scheduled maintenance on Jan 15, 2am-4am', icon: '🔧' },
-      ],
-    };
+    if (!currentUser) return;
 
     const interval = setInterval(() => {
-      // Only generate notifications based on preferences
-      const enabledTypes = Object.entries(preferences)
-        .filter(([key, value]) => value && key !== 'marketing')
-        .map(([key]) => key === 'transactions' ? 'transaction' : key);
-
-      if (enabledTypes.length === 0) return;
-
-      const randomType = enabledTypes[Math.floor(Math.random() * enabledTypes.length)];
-      const templates = notificationTemplates[randomType];
-      const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
-
-      const newNotification = {
-        id: Date.now(),
-        type: randomType,
-        title: randomTemplate.title,
-        detail: randomTemplate.detail,
-        time: new Date().toISOString(),
-        read: false,
-        icon: randomTemplate.icon,
-      };
-
-      setNotifications((prev) => [newNotification, ...prev].slice(0, 50)); // Keep last 50
-    }, 15000); // New notification every 15 seconds
+      // This would trigger a refetch of transactions from the backend
+      // For now, we rely on the context's built-in polling
+      // In a real app, you'd call an API endpoint here
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, [preferences]);
+  }, [currentUser]);
 
   // Format relative time
   const formatTime = (isoString) => {
@@ -192,21 +172,44 @@ function NotificationsPage() {
     <div className="min-h-screen bg-slate-950 text-slate-50">
       <div className="absolute inset-0 -z-10 gradient-veil" />
       
-      <div className="mx-auto max-w-5xl px-6 py-10 space-y-8">
-        <header className="flex items-center justify-between">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">Notifications</p>
-            <h1 className="text-3xl font-semibold text-white">Your latest alerts</h1>
-            <p className="text-slate-300 mt-2">
-              Real-time updates about your account activity.
-              {unreadCount > 0 && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-400">
-                  {unreadCount} unread
-                </span>
-              )}
+            <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-cyan-200">Notifications</p>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-white mt-1">Your latest alerts</h1>
+            <p className="text-sm text-slate-300 mt-2">
+              Real-time account activity and updates
             </p>
           </div>
-          <div className="flex gap-3">
+        </header>
+
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            Live updates enabled
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="text-xs sm:text-sm text-cyan-400 hover:text-cyan-300 transition"
+              >
+                Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={clearAll}
+                className="text-xs sm:text-sm text-red-400 hover:text-red-300 transition"
+              >
+                Clear all
+              </button>
+            )}
             <button
               onClick={() => setShowSettings(true)}
               className="text-slate-400 hover:text-cyan-300 transition"
@@ -214,15 +217,12 @@ function NotificationsPage() {
             >
               ⚙️
             </button>
-            <Link to="/dashboard" className="text-cyan-300 hover:text-cyan-100 text-sm">
-              ← Back to dashboard
-            </Link>
           </div>
-        </header>
+        </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-1.5 flex-wrap">
             {[
               { key: 'all', label: 'All', count: notifications.length },
               { key: 'unread', label: 'Unread', count: unreadCount },
@@ -233,7 +233,7 @@ function NotificationsPage() {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap ${
                   filter === tab.key
                     ? 'bg-cyan-400 text-slate-900'
                     : 'bg-white/5 text-slate-300 hover:bg-white/10'
@@ -243,34 +243,6 @@ function NotificationsPage() {
               </button>
             ))}
           </div>
-
-          <div className="flex gap-2">
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="text-sm text-cyan-400 hover:text-cyan-300 transition"
-              >
-                Mark all read
-              </button>
-            )}
-            {notifications.length > 0 && (
-              <button
-                onClick={clearAll}
-                className="text-sm text-red-400 hover:text-red-300 transition"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Live Indicator */}
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          Live updates enabled
         </div>
 
         {/* Notifications List */}
@@ -285,24 +257,34 @@ function NotificationsPage() {
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/5 divide-y divide-white/5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden divide-y divide-white/5">
             {filteredNotifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-4 hover:bg-white/5 transition group ${
-                  !notification.read ? 'bg-cyan-500/5 border-l-4 border-l-cyan-500' : ''
+                className={`px-4 py-4 sm:px-6 hover:bg-white/[0.03] transition group ${
+                  !notification.read ? 'bg-cyan-500/5' : ''
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="text-2xl mt-1">{notification.icon}</div>
+                <div className="flex items-start justify-between gap-3">
+                  {/* Left: Icon + Content */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="text-2xl flex-shrink-0">{notification.icon}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start flex-wrap gap-2">
                         <div className="text-sm font-semibold text-white">{notification.title}</div>
                         {!notification.read && (
-                          <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
+                          <span className="h-2 w-2 rounded-full bg-cyan-400 flex-shrink-0 mt-1"></span>
                         )}
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                        {notification.status && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${
+                            notification.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                            notification.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                            'bg-green-500/20 text-green-400'
+                          }`}>
+                            {notification.status.toUpperCase()}
+                          </span>
+                        )}
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${
                           notification.type === 'transaction' ? 'bg-blue-500/20 text-blue-400' :
                           notification.type === 'security' ? 'bg-red-500/20 text-red-400' :
                           'bg-purple-500/20 text-purple-400'
@@ -310,18 +292,19 @@ function NotificationsPage() {
                           {notification.type}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-400 mt-1">{notification.detail}</div>
+                      <div className="text-xs text-slate-400 mt-1.5">{notification.detail}</div>
                       <div className="text-[11px] text-slate-500 mt-2">
                         {formatTime(notification.time)}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                  {/* Right: Actions */}
+                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
                     {!notification.read && (
                       <button
                         onClick={() => markAsRead(notification.id)}
-                        className="text-xs text-cyan-400 hover:text-cyan-300 transition"
+                        className="p-1 text-cyan-400 hover:text-cyan-300 transition text-lg"
                         title="Mark as read"
                       >
                         ✓
@@ -329,10 +312,10 @@ function NotificationsPage() {
                     )}
                     <button
                       onClick={() => deleteNotification(notification.id)}
-                      className="text-xs text-red-400 hover:text-red-300 transition"
+                      className="p-1 text-red-400 hover:text-red-300 transition text-lg"
                       title="Delete"
                     >
-                      🗑️
+                      ✕
                     </button>
                   </div>
                 </div>
