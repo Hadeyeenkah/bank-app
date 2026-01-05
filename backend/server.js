@@ -12,6 +12,7 @@ const transactionRoutes = require("./src/routes/transactionRoutes");
 const billRoutes = require("./src/routes/billRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const transferRoutes = require("./src/routes/transferRoutes");
 const { seedDemoUsers } = require("./src/utils/seedDemoUsers");
 
 const app = express();
@@ -103,6 +104,7 @@ app.get("/api/health", (req, res) => {
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/transfers", transferRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);

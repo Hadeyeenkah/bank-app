@@ -81,7 +81,8 @@ exports.payBill = async (req, res) => {
     }
 
     // Generate unique reference
-    const reference = `BILL-${userId.toString().substring(0, 8)}-${Date.now()}`;
+    const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const reference = `BILL-${userId.toString().substring(0, 8)}-${Date.now()}-${randomId}`;
 
     console.log('💾 Creating transaction...');
 

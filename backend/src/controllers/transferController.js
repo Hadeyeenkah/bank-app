@@ -69,7 +69,8 @@ exports.internalTransfer = async (req, res) => {
       });
     }
 
-    const reference = `INT-${userId.toString().substring(0, 8)}-${Date.now()}`;
+    const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const reference = `INT-${userId.toString().substring(0, 8)}-${Date.now()}-${randomId}`;
 
     // Create debit transaction
     const debitTransaction = await Transaction.create({
@@ -243,7 +244,8 @@ exports.externalTransfer = async (req, res) => {
       });
     }
 
-    const reference = `EXT-${userId.toString().substring(0, 8)}-${Date.now()}`;
+    const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const reference = `EXT-${userId.toString().substring(0, 8)}-${Date.now()}-${randomId}`;
 
     // Deduct from sender immediately and create pending transaction
     const senderTransaction = await Transaction.create({

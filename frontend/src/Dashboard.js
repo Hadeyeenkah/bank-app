@@ -291,7 +291,7 @@ function Dashboard() {
     <div className="min-h-screen bg-slate-950 text-slate-50">
       {/* Header */}
       <header className="border-b border-white/5 bg-slate-900/50 backdrop-blur relative z-30">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-4 gap-3 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 text-cyan-400">
               <AuroraBankLogo />
@@ -436,7 +436,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-6 py-8">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-semibold text-white">Welcome back, {user.name.split(' ')[0]}</h1>
@@ -501,7 +501,7 @@ function Dashboard() {
             
             {/* Account Details - Prominently displayed */}
             <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-cyan-200 mb-1">Account Number</p>
                   <div className="flex items-center gap-2">
@@ -558,7 +558,7 @@ function Dashboard() {
               <p className="text-xs text-cyan-300 mt-2">💡 Share these details to receive transfers</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs text-slate-300">Checking</p>
                 <p className="mt-2 text-2xl font-semibold text-white">
@@ -601,7 +601,7 @@ function Dashboard() {
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold text-white">Quick Actions</h2>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {quickActions.map((action) => (
               <Link
                 key={action.title}
@@ -617,15 +617,15 @@ function Dashboard() {
 
         {/* Recent Transactions */}
         <div className="mb-8">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-white">Recent Transactions</h2>
             <Link to="/transactions" className="text-sm text-cyan-200 hover:text-cyan-100">View all</Link>
           </div>
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
             <div className="space-y-4">
               {recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-4">
+                <div key={transaction.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5">
                       <span className="text-lg">{transaction.amount < 0 ? '↓' : '↑'}</span>
                     </div>
@@ -958,9 +958,9 @@ function Dashboard() {
       )}
 
       {/* Chatbot Widget */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 flex justify-end">
         {chatOpen ? (
-          <div className="w-96 h-[600px] bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl border border-cyan-500/30 flex flex-col overflow-hidden">
+          <div className="w-full max-w-md sm:w-96 h-[70vh] sm:h-[600px] bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl border border-cyan-500/30 flex flex-col overflow-hidden">
             {/* Chat Header */}
             <div className="bg-gradient-to-r from-cyan-600 to-cyan-500 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1019,7 +1019,7 @@ function Dashboard() {
         ) : (
           <button
             onClick={() => setChatOpen(true)}
-            className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center text-2xl border border-cyan-400/50"
+            className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-600 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center text-2xl border border-cyan-400/50"
             title="Open chat"
           >
             💬
