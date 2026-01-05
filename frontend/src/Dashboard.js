@@ -287,21 +287,59 @@ function Dashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validate file size (max 500KB for data URL storage)
-    if (file.size > 500000) {
-      setSaveError('Image is too large. Please choose a file smaller than 500KB.');
-      return;
-    }
-    
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setSaveError('Please select a valid image file.');
       return;
     }
     
+    // Validate file size (max 5MB)
+    if (file.size > 5000000) {
+      setSaveError('Image is too large. Please choose a file smaller than 5MB.');
+      return;
+    }
+    
     const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({ ...prev, avatarUrl: reader.result }));
+    reader.onload = (event) => {
+      // Compress image using canvas if it's too large
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Scale down if image is very large
+        const maxWidth = 800;
+        const maxHeight = 800;
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to data URL with compression
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Check compressed size
+        if (compressedDataUrl.length > 2000000) {
+          setSaveError('Compressed image is still too large. Please use a smaller image.');
+          return;
+        }
+        
+        setFormData((prev) => ({ ...prev, avatarUrl: compressedDataUrl }));
+      };
+      img.src = event.target.result;
     };
     reader.onerror = () => {
       setSaveError('Failed to read image file.');
@@ -798,7 +836,7 @@ function Dashboard() {
                   Change Picture
                   <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                 </label>
-                <p className="text-xs text-slate-400">JPG, PNG up to 500KB</p>
+                <p className="text-xs text-slate-400">JPG, PNG up to 5MB (auto-compressed)</p>
               </div>
 
               {/* Personal Information */}

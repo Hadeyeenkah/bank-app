@@ -72,9 +72,9 @@ console.log('🔒 CORS allowed origins:', allowedOrigins);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// Parsers
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Parsers - increase limit for image uploads (base64 encoded)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // Rate limiting - more permissive for authenticated API calls
