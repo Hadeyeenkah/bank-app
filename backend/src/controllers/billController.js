@@ -32,8 +32,6 @@ exports.payBill = async (req, res) => {
 
     console.log('✅ Validation passed, fetching user...');
 
-    console.log('✅ Validation passed, fetching user...');
-
     // Get user to check balance
     const user = await User.findById(userId);
     if (!user) {
@@ -43,39 +41,59 @@ exports.payBill = async (req, res) => {
 
     console.log('✅ User found:', user.email);
     console.log('💰 User balance:', user.balance);
-    console.log('📊 User accounts:', user.accounts);
+    console.log('📊 User accounts:', JSON.stringify(user.accounts));
 
     // Initialize accounts array if it doesn't exist
     if (!user.accounts || user.accounts.length === 0) {
+      console.log('⚠️ Initializing user accounts...');
       user.accounts = [
         { accountType: 'checking', balance: user.balance || 0 },
         { accountType: 'savings', balance: 0 }
       ];
+      user.markModified('accounts');
+      await user.save();
+      console.log('✅ Accounts initialized');
     }
 
-    const accountBalance = fromAccount === 'savings' 
-      ? user.accounts?.find(a => a.accountType === 'savings')?.balance || 0
-      : user.accounts?.find(a => a.accountType === 'checking')?.balance || 0;
+    const targetAccount = fromAccount || 'checking';
+    const accountObj = user.accounts?.find(a => a.accountType === targetAccount);
+    const accountBalance = accountObj?.balance || 0;
     
-    if (accountBalance < amount) {
+    console.log(`💵 ${targetAccount} account:`, accountObj);
+    console.log(`💵 ${targetAccount} balance:`, accountBalance);
+    
+    // Validate amount is a number
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      console.log('❌ Invalid amount:', amount);
       return res.status(400).json({
         status: 'error',
-        message: `Insufficient funds in ${fromAccount}. Available: $${accountBalance.toFixed(2)}`,
+        message: 'Invalid amount. Please enter a valid positive number.',
+      });
+    }
+    
+    if (accountBalance < numericAmount) {
+      console.log(`❌ Insufficient funds: ${accountBalance} < ${numericAmount}`);
+      return res.status(400).json({
+        status: 'error',
+        message: `Insufficient funds in ${targetAccount}. Available: $${accountBalance.toFixed(2)}`,
       });
     }
 
     // Generate unique reference
-    const reference = `BILL-${userId}-${Date.now()}`;
+    const reference = `BILL-${userId.toString().substring(0, 8)}-${Date.now()}`;
+
+    console.log('💾 Creating transaction...');
 
     // Create transaction record
     const transaction = await Transaction.create({
       userId: userId,
-      amount: -amount,
-      description: `Bill Payment: ${payee}`,
+      amount: -numericAmount,
+      description: payee,
       category: category || 'Bills',
-      accountType: fromAccount || 'checking',
+      accountType: targetAccount,
       status: 'completed',
-      transferType: 'bill_payment',
+      transferType: 'bill',
       reference,
       note: note || `Payment to ${payee}`,
       date: new Date(),
@@ -85,14 +103,17 @@ exports.payBill = async (req, res) => {
       },
     });
 
+    console.log('✅ Transaction created:', transaction._id);
+    console.log('💾 Creating bill record...');
+
     // Create bill payment record
     const bill = await Bill.create({
       userId: userId,
       payee,
-      amount,
+      amount: numericAmount,
       category: category || 'Other',
       accountNumber: accountNumber || '',
-      fromAccount: fromAccount || 'checking',
+      fromAccount: targetAccount,
       status: 'completed',
       transactionId: transaction._id,
       note: note || '',
@@ -100,18 +121,28 @@ exports.payBill = async (req, res) => {
       reference,
     });
 
+    console.log('✅ Bill created:', bill._id);
+    console.log('💰 Updating user balances...');
+
     // Update user account balance
-    const accountIndex = user.accounts.findIndex(a => a.accountType === fromAccount);
+    const accountIndex = user.accounts.findIndex(a => a.accountType === targetAccount);
     if (accountIndex !== -1) {
-      user.accounts[accountIndex].balance -= amount;
+      user.accounts[accountIndex].balance -= numericAmount;
+      console.log(`✅ ${targetAccount} new balance:`, user.accounts[accountIndex].balance);
+    } else {
+      console.warn('⚠️ Account not found in array, creating it...');
+      user.accounts.push({ accountType: targetAccount, balance: -numericAmount });
     }
 
-    // Update overall balance
-    user.balance = (user.balance || 0) - amount;
+    // Recalculate overall balance from all accounts
+    user.balance = user.accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+    console.log('✅ Total new balance:', user.balance);
     
     // Mark accounts as modified for Mongoose to save properly
     user.markModified('accounts');
     await user.save();
+
+    console.log('✅ Bill payment completed successfully');
 
     res.status(201).json({
       status: 'success',
@@ -152,6 +183,8 @@ exports.getBillPayments = async (req, res) => {
   try {
     const userId = req.userId;
 
+    console.log('📋 Fetching bills for user:', userId);
+
     // Validate user ID
     if (!userId) {
       return res.status(401).json({
@@ -162,15 +195,10 @@ exports.getBillPayments = async (req, res) => {
 
     const { status, limit = 50, skip = 0 } = req.query;
 
-    const query = { userId: userId };
-    if (status) {
-      query.status = status;
-    }
-
     // Check if database is connected
     const mongoose = require('mongoose');
     if (mongoose.connection.readyState !== 1) {
-      console.log('Database not ready, returning empty bill list');
+      console.log('⚠️ Database not ready, returning empty bill list');
       return res.json({
         status: 'success',
         bills: [],
@@ -181,6 +209,14 @@ exports.getBillPayments = async (req, res) => {
         },
       });
     }
+
+    // Build query
+    const query = { userId: userId };
+    if (status) {
+      query.status = status;
+    }
+
+    console.log('🔍 Query:', query);
 
     // Add better error handling for empty collections
     let bills = [];
@@ -195,9 +231,13 @@ exports.getBillPayments = async (req, res) => {
         .lean();
       
       total = await Bill.countDocuments(query);
+      
+      console.log(`✅ Found ${bills.length} bills (total: ${total})`);
     } catch (dbError) {
-      console.log('Database query error (non-fatal):', dbError.message);
+      console.log('⚠️ Database query error (non-fatal):', dbError.message);
       // Return empty result instead of failing
+      bills = [];
+      total = 0;
     }
 
     res.json({
@@ -212,11 +252,16 @@ exports.getBillPayments = async (req, res) => {
   } catch (error) {
     console.error('❌ Get bills error:', error.message);
     console.error('Error stack:', error.stack);
-    res.status(500).json({
-      status: 'error',
-      message: 'Server error fetching bill payments',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    // Return empty array instead of 500 error for initial load
+    res.json({
+      status: 'success',
+      bills: [],
+      pagination: {
+        total: 0,
+        limit: parseInt(req.query.limit || 50),
+        skip: parseInt(req.query.skip || 0),
+      },
+      warning: 'Bills could not be loaded at this time',
     });
   }
 };

@@ -189,6 +189,85 @@ router.post('/users/:userId/transactions', protect, requireRole('admin'), async 
   }
 });
 
+// Edit transaction
+router.patch('/users/:userId/transactions/:transactionId', protect, requireRole('admin'), async (req, res) => {
+  try {
+    const { userId, transactionId } = req.params;
+    const { description, amount, category, accountType, date } = req.body;
+
+    const transaction = await Transaction.findOne({ _id: transactionId, userId: userId });
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const oldAmount = transaction.amount;
+    const oldAccountType = transaction.accountType;
+
+    // Update transaction fields
+    if (description !== undefined) transaction.description = description;
+    if (category !== undefined) transaction.category = category;
+    if (date !== undefined) transaction.date = new Date(date);
+
+    // Handle amount and account type changes
+    if (amount !== undefined || accountType !== undefined) {
+      const newAmount = amount !== undefined ? parseFloat(amount) : oldAmount;
+      const newAccountType = accountType !== undefined ? accountType : oldAccountType;
+
+      // Adjust balances if amount or account type changed
+      if (newAmount !== oldAmount || newAccountType !== oldAccountType) {
+        // Reverse old transaction from old account
+        const oldAccountIndex = user.accounts.findIndex(a => a.accountType === oldAccountType);
+        if (oldAccountIndex !== -1) {
+          user.accounts[oldAccountIndex].balance -= oldAmount;
+        }
+
+        // Add new transaction to new account
+        const newAccountIndex = user.accounts.findIndex(a => a.accountType === newAccountType);
+        if (newAccountIndex !== -1) {
+          user.accounts[newAccountIndex].balance += newAmount;
+        } else {
+          user.accounts.push({
+            accountType: newAccountType,
+            accountNumber: `${newAccountType.toUpperCase()}-${Date.now()}`,
+            balance: newAmount,
+          });
+        }
+
+        // Update user balance
+        user.balance = user.accounts.reduce((sum, acc) => sum + acc.balance, 0);
+        transaction.amount = newAmount;
+        transaction.accountType = newAccountType;
+      }
+
+      user.markModified('accounts');
+    }
+
+    await transaction.save();
+    await user.save();
+
+    res.json({
+      message: 'Transaction updated successfully',
+      transaction: {
+        id: transaction._id,
+        description: transaction.description,
+        amount: transaction.amount,
+        category: transaction.category,
+        accountType: transaction.accountType,
+        date: transaction.date,
+        status: transaction.status,
+      },
+    });
+  } catch (error) {
+    console.error('Edit transaction error:', error);
+    res.status(500).json({ message: 'Server error editing transaction' });
+  }
+});
+
 // Delete transaction
 router.delete('/users/:userId/transactions/:transactionId', protect, requireRole('admin'), async (req, res) => {
   try {
@@ -221,6 +300,91 @@ router.delete('/users/:userId/transactions/:transactionId', protect, requireRole
   } catch (error) {
     console.error('Delete transaction error:', error);
     res.status(500).json({ message: 'Server error deleting transaction' });
+  }
+});
+
+// Send message to user
+router.post('/users/:userId/messages', protect, requireRole('admin'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { message } = req.body;
+
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ message: 'Message cannot be empty' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Add message to user's messages array
+    user.messages.push({
+      message: message.trim(),
+      sender: 'Bank Admin',
+      createdAt: new Date(),
+      read: false,
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'Message sent successfully',
+      data: {
+        message: message,
+        sender: 'Bank Admin',
+        createdAt: new Date(),
+        read: false,
+      },
+    });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ message: 'Server error sending message' });
+  }
+});
+
+// Get user messages
+router.get('/users/:userId/messages', protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select('messages');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      messages: user.messages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ message: 'Server error fetching messages' });
+  }
+});
+
+// Mark message as read
+router.patch('/users/:userId/messages/:messageId/read', protect, async (req, res) => {
+  try {
+    const { userId, messageId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const msgIndex = user.messages.findIndex(m => m._id.toString() === messageId);
+    if (msgIndex === -1) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    user.messages[msgIndex].read = true;
+    user.markModified('messages');
+    await user.save();
+
+    res.json({ message: 'Message marked as read' });
+  } catch (error) {
+    console.error('Mark as read error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

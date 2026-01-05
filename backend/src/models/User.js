@@ -1,6 +1,13 @@
 // src/models/User.js
 const mongoose = require('mongoose');
 
+// Generate unique account number (12 digits)
+const generateAccountNumber = () => {
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `${timestamp}${random}`;
+};
+
 const UserSchema = new mongoose.Schema(
   {
     firstName: {
@@ -48,6 +55,18 @@ const UserSchema = new mongoose.Schema(
     balance: {
       type: Number,
       default: 0
+    },
+
+    // Bank account identifiers
+    accountNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    routingNumber: {
+      type: String,
+      default: '026009593', // Aurora Bank's routing number
     },
 
     // Email verification
@@ -105,9 +124,51 @@ const UserSchema = new mongoose.Schema(
         accountNumber: { type: String },
         balance: { type: Number, default: 0 }
       }
+    ],
+
+    // Admin messages/notifications for users
+    messages: [
+      {
+        message: {
+          type: String,
+          required: true
+        },
+        sender: {
+          type: String,
+          default: 'Admin'
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        },
+        read: {
+          type: Boolean,
+          default: false
+        }
+      }
     ]
   },
   { timestamps: true }
 );
+
+// Pre-save hook to generate account number
+UserSchema.pre('save', async function(next) {
+  if (!this.accountNumber) {
+    let accountNumber;
+    let isUnique = false;
+    
+    // Keep generating until we get a unique number
+    while (!isUnique) {
+      accountNumber = generateAccountNumber();
+      const existing = await mongoose.model('User').findOne({ accountNumber });
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    
+    this.accountNumber = accountNumber;
+  }
+  next();
+});
 
 module.exports = mongoose.model('User', UserSchema);

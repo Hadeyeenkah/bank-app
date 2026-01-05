@@ -12,6 +12,9 @@ function TransferPage() {
     transferType: 'external',
     recipientName: '',
     recipientEmail: '',
+    recipientAccountNumber: '',
+    recipientRoutingNumber: '026009593', // Aurora Bank routing number
+    lookupMethod: 'email', // 'email' or 'account'
     bankName: '',
     routingNumber: '',
     accountNumber: '',
@@ -24,7 +27,9 @@ function TransferPage() {
   const [messageType, setMessageType] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [sendingNotification, setSendingNotification] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [recipientFound, setRecipientFound] = useState(null);
+  const [beneficiaries, setBeneficiaries] = useState([]);
 
   const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -32,66 +37,175 @@ function TransferPage() {
     window.print();
   };
 
+  // Lookup recipient by email
+  const handleRecipientLookup = async (email, accountNumber, routingNumber) => {
+    if (!email && !accountNumber) {
+      setRecipientFound(null);
+      return;
+    }
+
+    if (email && !email.includes('@')) {
+      setRecipientFound(null);
+      return;
+    }
+
+    try {
+      let url = `${apiBase}/auth/lookup?`;
+      if (email) {
+        url += `email=${encodeURIComponent(email)}`;
+      } else if (accountNumber) {
+        url += `accountNumber=${encodeURIComponent(accountNumber)}`;
+        if (routingNumber) {
+          url += `&routingNumber=${encodeURIComponent(routingNumber)}`;
+        }
+      }
+
+      const res = await fetch(url, {
+        credentials: 'include',
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setRecipientFound({
+            name: `${data.user.firstName} ${data.user.lastName}`,
+            email: data.user.email,
+            accountNumber: data.user.accountNumber,
+            routingNumber: data.user.routingNumber,
+          });
+          setFormData(prev => ({ 
+            ...prev, 
+            recipientName: `${data.user.firstName} ${data.user.lastName}`,
+            recipientEmail: data.user.email,
+            recipientAccountNumber: data.user.accountNumber,
+            recipientRoutingNumber: data.user.routingNumber,
+          }));
+        } else {
+          setRecipientFound(null);
+        }
+      } else {
+        setRecipientFound(null);
+      }
+    } catch (err) {
+      setRecipientFound(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    setMessageType('');
+
+    // Validation
     if (!formData.amount || Number(formData.amount) <= 0) {
       setMessageType('error');
       setMessage('Enter a valid amount greater than $0.00');
-      return;
-    }
-    if (formData.transferType === 'external' && !formData.recipientEmail) {
-      setMessageType('error');
-      setMessage('Recipient email is required for external transfers.');
+      setLoading(false);
       return;
     }
 
-    const result = transferMoney({
-      fromUserId: currentUser.id,
-      amount: parseFloat(formData.amount),
-      fromAccount: formData.fromAccount,
-      transferType: formData.transferType,
-      toAccount: formData.transferType === 'internal' ? formData.toAccount : undefined,
-      recipient: formData.transferType === 'external' ? {
-        name: formData.recipientName,
-        bankName: formData.bankName,
-        routingNumber: formData.routingNumber,
-        accountNumber: formData.accountNumber,
-      } : undefined,
-      note: formData.note,
-    });
-
-    if (result.success) {
-      setMessageType('success');
-      setMessage(result.message || 'Transfer initiated successfully!');
-      setReceipt(result.receipt || null);
-      setShowReceiptModal(true);
-
-      // Fire off receiver notification (on-hold notice)
-      if (formData.transferType === 'external') {
-        setSendingNotification(true);
-        try {
-          await fetch(`${apiBase}/transactions/notify-receiver`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              receiverEmail: formData.recipientEmail,
-              senderName: currentUser?.name || currentUser?.email || 'Aurora Bank client',
-              amount: parseFloat(formData.amount),
-              note: formData.note,
-            }),
-          });
-        } catch (err) {
-          console.warn('Receiver notification failed (non-blocking):', err);
-        } finally {
-          setSendingNotification(false);
-        }
+    if (formData.transferType === 'external') {
+      if (formData.lookupMethod === 'email' && !formData.recipientEmail) {
+        setMessageType('error');
+        setMessage('Recipient email is required.');
+        setLoading(false);
+        return;
       }
-    } else {
+      if (formData.lookupMethod === 'account' && (!formData.recipientAccountNumber || !formData.recipientRoutingNumber)) {
+        setMessageType('error');
+        setMessage('Recipient account and routing numbers are required.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    try {
+      let endpoint = '';
+      let payload = {};
+
+      if (formData.transferType === 'internal') {
+        // Internal transfer between own accounts
+        endpoint = `${apiBase}/transfers/internal`;
+        payload = {
+          amount: parseFloat(formData.amount),
+          fromAccount: formData.fromAccount,
+          toAccount: formData.toAccount,
+          note: formData.note,
+        };
+      } else {
+        // External transfer to another user
+        endpoint = `${apiBase}/transfers/external`;
+        payload = {
+          amount: parseFloat(formData.amount),
+          fromAccount: formData.fromAccount,
+          recipientEmail: formData.lookupMethod === 'email' ? formData.recipientEmail : undefined,
+          recipientAccountNumber: formData.lookupMethod === 'account' ? formData.recipientAccountNumber : undefined,
+          recipientRoutingNumber: formData.lookupMethod === 'account' ? formData.recipientRoutingNumber : undefined,
+          recipientName: formData.recipientName,
+          note: formData.note,
+        };
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.status === 'success') {
+        setMessageType('success');
+        setMessage(data.message || 'Transfer completed successfully!');
+        
+        // Create receipt
+        const receiptData = {
+          reference: data.transfer?.reference || `REF-${Date.now()}`,
+          date: new Date(data.transfer?.date || Date.now()).toLocaleString(),
+          amount: data.transfer?.amount || parseFloat(formData.amount),
+          status: data.transfer?.status || 'completed',
+          fromAccount: formData.fromAccount,
+          toAccount: formData.transferType === 'internal' ? formData.toAccount : undefined,
+          recipient: formData.transferType === 'external' ? {
+            name: data.transfer?.recipientName || formData.recipientName,
+            email: data.transfer?.recipientEmail || formData.recipientEmail,
+          } : undefined,
+          note: formData.note,
+          transferType: formData.transferType,
+        };
+
+        setReceipt(receiptData);
+        setShowReceiptModal(true);
+
+        // Reset form
+        setFormData({
+          transferType: 'external',
+          recipientName: '',
+          recipientEmail: '',
+          recipientAccountNumber: '',
+          recipientRoutingNumber: '026009593',
+          lookupMethod: 'email',
+          bankName: '',
+          routingNumber: '',
+          accountNumber: '',
+          amount: '',
+          fromAccount: 'checking',
+          toAccount: 'savings',
+          note: '',
+        });
+        setRecipientFound(null);
+      } else {
+        setMessageType('error');
+        setMessage(data.message || 'Transfer failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Transfer error:', error);
       setMessageType('error');
-      setMessage(result.message);
-      setReceipt(null);
-      setShowReceiptModal(false);
+      setMessage('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -160,62 +274,144 @@ function TransferPage() {
               </div>
 
               {formData.transferType === 'external' && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">
+                    💡 Enter the recipient's Aurora Bank email or account details. Transfer will be pending until admin approval.
+                  </div>
+
+                  {/* Lookup method toggle */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, lookupMethod: 'email' });
+                        setRecipientFound(null);
+                      }}
+                      className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                        formData.lookupMethod === 'email'
+                          ? 'bg-cyan-400 text-slate-900'
+                          : 'border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      📧 By Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, lookupMethod: 'account' });
+                        setRecipientFound(null);
+                      }}
+                      className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                        formData.lookupMethod === 'account'
+                          ? 'bg-cyan-400 text-slate-900'
+                          : 'border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      🏦 By Account Number
+                    </button>
+                  </div>
+                  
+                  {formData.lookupMethod === 'email' ? (
+                    <div className="space-y-2">
+                      <label className="text-sm text-slate-200">Recipient Email *</label>
+                      <input
+                        type="email"
+                        value={formData.recipientEmail}
+                        onChange={(e) => {
+                          setFormData({ ...formData, recipientEmail: e.target.value });
+                          handleRecipientLookup(e.target.value, null, null);
+                        }}
+                        onBlur={(e) => handleRecipientLookup(e.target.value, null, null)}
+                        placeholder="recipient@email.com"
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                        required
+                      />
+                      {recipientFound && (
+                        <div className="flex items-center gap-2 text-sm text-green-400">
+                          <span>✓</span>
+                          <span>Recipient found: {recipientFound.name}</span>
+                        </div>
+                      )}
+                      {formData.recipientEmail && !recipientFound && formData.recipientEmail.includes('@') && (
+                        <div className="text-sm text-yellow-400">
+                          ⚠️ Recipient not found. They must have an Aurora Bank account.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-200">Routing Number *</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formData.recipientRoutingNumber}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 9);
+                            setFormData({ ...formData, recipientRoutingNumber: value });
+                          }}
+                          onBlur={() => {
+                            if (formData.recipientAccountNumber && formData.recipientRoutingNumber.length === 9) {
+                              handleRecipientLookup(null, formData.recipientAccountNumber, formData.recipientRoutingNumber);
+                            }
+                          }}
+                          placeholder="026009593 (Aurora Bank)"
+                          maxLength="9"
+                          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                          required
+                        />
+                        <p className="text-xs text-slate-400">Aurora Bank Routing: 026009593</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-200">Account Number *</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formData.recipientAccountNumber}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 12);
+                            setFormData({ ...formData, recipientAccountNumber: value });
+                          }}
+                          onBlur={() => {
+                            if (formData.recipientAccountNumber && formData.recipientRoutingNumber.length === 9) {
+                              handleRecipientLookup(null, formData.recipientAccountNumber, formData.recipientRoutingNumber);
+                            }
+                          }}
+                          placeholder="Enter 12-digit account number"
+                          maxLength="12"
+                          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                          required
+                        />
+                      </div>
+                      
+                      {recipientFound && (
+                        <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-400">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span>✓</span>
+                            <span className="font-semibold">Account Verified</span>
+                          </div>
+                          <div className="text-xs text-green-300">
+                            Recipient: {recipientFound.name} ({recipientFound.email})
+                          </div>
+                        </div>
+                      )}
+                      {formData.recipientAccountNumber && formData.recipientRoutingNumber.length === 9 && !recipientFound && (
+                        <div className="text-sm text-yellow-400">
+                          ⚠️ Account not found. Please verify the account and routing numbers.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <label className="text-sm text-slate-200">Recipient Name</label>
+                    <label className="text-sm text-slate-200">Recipient Name (auto-filled)</label>
                     <input
                       type="text"
                       value={formData.recipientName}
-                      onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
-                      placeholder="Pat Taylor"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-slate-200">Recipient Email</label>
-                    <input
-                      type="email"
-                      value={formData.recipientEmail}
-                      onChange={(e) => setFormData({ ...formData, recipientEmail: e.target.value })}
-                      placeholder="recipient@email.com"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-slate-200">Bank Name</label>
-                    <input
-                      type="text"
-                      value={formData.bankName}
-                      onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                      placeholder="Example Federal Bank"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-slate-200">Routing Number</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formData.routingNumber}
-                      onChange={(e) => setFormData({ ...formData, routingNumber: e.target.value })}
-                      placeholder="026009593"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-slate-200">Account Number</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formData.accountNumber}
-                      onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                      placeholder="000123456789"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
-                      required
+                      placeholder="Will be auto-filled when recipient is found"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none"
+                      readOnly
                     />
                   </div>
                 </div>
@@ -283,15 +479,16 @@ function TransferPage() {
                     : 'border border-red-500/20 bg-red-500/10 text-red-400'
                   }`}
                 >
-                  {message} {sendingNotification && messageType === 'success' && '(notifying receiver...)'}
+                  {message}
                 </div>
               )}
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900 transition hover:bg-cyan-300"
+                disabled={loading || (formData.transferType === 'external' && !recipientFound)}
+                className="w-full rounded-xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900 transition hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Send Money
+                {loading ? 'Processing...' : 'Send Money'}
               </button>
             </form>
           </div>
@@ -302,9 +499,9 @@ function TransferPage() {
               <p className="text-2xl font-semibold text-cyan-200">${Number(currentUser?.balance ?? 0).toFixed(2)}</p>
             </div>
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 space-y-2 text-sm text-slate-300">
-              <p>💡 External transfers post to your history immediately as pending and move to your balance once an admin approves.</p>
-              <p>↔️ Internal transfers between Checking and Savings move instantly.</p>
-              <p>🔒 Standard ABA routing + account numbers are required for external bank transfers.</p>
+              <p>💡 <strong>External transfers</strong> to other Aurora Bank users require admin approval before funds are released.</p>
+              <p>↔️ <strong>Internal transfers</strong> between your Checking and Savings move instantly.</p>
+              <p>🔒 Funds are deducted immediately but held pending approval for external transfers.</p>
             </div>
           </div>
         </div>

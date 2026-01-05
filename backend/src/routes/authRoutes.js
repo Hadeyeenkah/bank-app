@@ -34,6 +34,9 @@ router.post('/change-password', protect, authController.changePassword);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
+// User lookup (for transfers)
+router.get('/lookup', protect, authController.lookupUser);
+
 // 2FA routes
 router.post('/enable-2fa', protect, authController.enable2FA);
 router.post('/confirm-2fa', protect, authController.confirm2FA);

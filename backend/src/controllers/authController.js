@@ -160,6 +160,13 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Generate account number if user doesn't have one (for existing users)
+    if (!user.accountNumber) {
+      console.log('⚠️ User missing account number, generating on login...');
+      await user.save(); // This will trigger the pre-save hook
+      console.log('✅ Account number generated:', user.accountNumber);
+    }
+
     if (user.mfaEnabled) {
       // Issue short-lived MFA challenge token
       const jwtSecret = process.env.JWT_SECRET || 'dev-access-secret-change-me';
@@ -273,6 +280,19 @@ exports.getProfile = async (req, res) => {
     if (!user) {
       console.error('❌ User not found in database:', req.userId);
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Generate account number if user doesn't have one (for existing users)
+    if (!user.accountNumber) {
+      console.log('⚠️ User missing account number, generating...');
+      await user.save(); // This will trigger the pre-save hook to generate account number
+      console.log('✅ Account number generated:', user.accountNumber);
+    }
+
+    // Set default routing number if missing
+    if (!user.routingNumber) {
+      user.routingNumber = '026009593';
+      await user.save();
     }
 
     console.log('✅ Profile fetched successfully for:', user.email);
@@ -513,5 +533,61 @@ exports.resetPassword = async (req, res) => {
   } catch (error) {
     console.error('❌ Reset password error:', error);
     res.status(500).json({ message: 'Server error. Please try again later.' });
+  }
+};
+
+// Lookup user by email (for transfer recipient search)
+exports.lookupUser = async (req, res) => {
+  try {
+    const { email, accountNumber, routingNumber } = req.query;
+
+    if (!email && !accountNumber) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email or account number is required',
+      });
+    }
+
+    let user;
+    
+    if (email) {
+      user = await User.findOne({ email: email.toLowerCase() })
+        .select('firstName lastName email accountNumber routingNumber')
+        .lean();
+    } else if (accountNumber) {
+      const query = { accountNumber };
+      // If routing number provided, validate it matches
+      if (routingNumber) {
+        query.routingNumber = routingNumber;
+      }
+      user = await User.findOne(query)
+        .select('firstName lastName email accountNumber routingNumber')
+        .lean();
+    }
+
+    if (!user) {
+      return res.json({
+        status: 'success',
+        user: null,
+        message: 'User not found',
+      });
+    }
+
+    res.json({
+      status: 'success',
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        accountNumber: user.accountNumber,
+        routingNumber: user.routingNumber,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Lookup user error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error',
+    });
   }
 };

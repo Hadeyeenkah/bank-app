@@ -15,7 +15,11 @@ function AdminPage() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [showEditTransactionModal, setShowEditTransactionModal] = useState(false);
+  const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [adminMessage, setAdminMessage] = useState('');
   const [newTransaction, setNewTransaction] = useState({
     description: '',
     amount: '',
@@ -23,6 +27,13 @@ function AdminPage() {
     accountType: 'checking',
     date: new Date().toISOString().split('T')[0],
     note: '',
+  });
+  const [editTransaction, setEditTransaction] = useState({
+    description: '',
+    amount: '',
+    category: 'Other',
+    accountType: 'checking',
+    date: new Date().toISOString().split('T')[0],
   });
 
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
@@ -201,6 +212,7 @@ function AdminPage() {
   };
 
   const handleDeleteTransaction = async (userId, transactionId) => {
+    // eslint-disable-next-line no-restricted-globals
     if (!confirm('Are you sure you want to delete this transaction?')) {
       return;
     }
@@ -220,6 +232,89 @@ function AdminPage() {
     } catch (err) {
       console.error('Delete transaction error:', err);
       alert('Error deleting transaction');
+    }
+  };
+
+  const handleEditTransaction = (transaction, userId) => {
+    setSelectedTransaction({ ...transaction, userId });
+    setEditTransaction({
+      description: transaction.description,
+      amount: transaction.amount,
+      category: transaction.category,
+      accountType: transaction.accountType,
+      date: transaction.date,
+    });
+    setShowEditTransactionModal(true);
+  };
+
+  const handleUpdateTransaction = async () => {
+    if (!selectedTransaction || !editTransaction.description || editTransaction.amount === '') {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${apiBase}/admin/users/${selectedTransaction.userId}/transactions/${selectedTransaction.id}`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...editTransaction,
+            amount: parseFloat(editTransaction.amount),
+          }),
+        }
+      );
+
+      if (res.ok) {
+        setShowEditTransactionModal(false);
+        setSelectedTransaction(null);
+        setEditTransaction({
+          description: '',
+          amount: '',
+          category: 'Other',
+          accountType: 'checking',
+          date: new Date().toISOString().split('T')[0],
+        });
+        await fetchAdminData();
+      } else {
+        const error = await res.json();
+        alert(`Failed to update transaction: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Update transaction error:', err);
+      alert('Error updating transaction');
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedUserId || adminMessage.trim().length === 0) {
+      alert('Please select a user and enter a message');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/admin/users/${selectedUserId}/messages`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: adminMessage }),
+      });
+
+      if (res.ok) {
+        setShowSendMessageModal(false);
+        setAdminMessage('');
+        setSelectedUserId('');
+        alert('Message sent successfully!');
+        await fetchAdminData();
+      } else {
+        const error = await res.json();
+        alert(`Failed to send message: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Send message error:', err);
+      alert('Error sending message');
     }
   };
 
@@ -288,6 +383,12 @@ function AdminPage() {
             className={`pb-3 text-sm font-semibold transition ${activeTab === 'transactions' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
           >
             Transaction Management
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`pb-3 text-sm font-semibold transition ${activeTab === 'messages' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
+          >
+            Send Messages
           </button>
           <button
             onClick={() => setActiveTab('activity')}
@@ -496,12 +597,20 @@ function AdminPage() {
                               <div className={`text-lg font-semibold ${transaction.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
                                 {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
                               </div>
-                              <button
-                                onClick={() => handleDeleteTransaction(user.id, transaction.id)}
-                                className="rounded-lg border border-red-500/50 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/10"
-                              >
-                                Delete
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditTransaction(transaction, user.id)}
+                                  className="rounded-lg border border-blue-500/50 px-3 py-1 text-xs font-semibold text-blue-400 hover:bg-blue-500/10"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(user.id, transaction.id)}
+                                  className="rounded-lg border border-red-500/50 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/10"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -513,6 +622,52 @@ function AdminPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Messages Tab */}
+        {activeTab === 'messages' && (
+          <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Send Messages to Users</h2>
+              <button
+                onClick={() => {
+                  setShowSendMessageModal(true);
+                  setSelectedUserId('');
+                  setAdminMessage('');
+                }}
+                className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+              >
+                + Send Message
+              </button>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-white/5 p-6">
+              <p className="mb-4 text-sm text-slate-300">Use this feature to send important notifications and information to users. Messages will appear on their profile.</p>
+              <div className="space-y-2">
+                {displayUsers.length === 0 ? (
+                  <p className="py-8 text-center text-slate-400">No users available</p>
+                ) : (
+                  displayUsers.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between rounded-lg border border-white/5 bg-white/10 p-4">
+                      <div>
+                        <p className="font-semibold text-white">{user.name}</p>
+                        <p className="text-xs text-slate-400">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedUserId(user.id);
+                          setShowSendMessageModal(true);
+                          setAdminMessage('');
+                        }}
+                        className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+                      >
+                        Send Message
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -674,6 +829,181 @@ function AdminPage() {
                       date: new Date().toISOString().split('T')[0],
                       note: '',
                     });
+                    setSelectedUserId('');
+                  }}
+                  className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-white hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditTransactionModal && selectedTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-900 p-8">
+            <h2 className="mb-6 text-2xl font-semibold text-white">Edit Transaction</h2>
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Description</label>
+                  <input
+                    type="text"
+                    value={editTransaction.description}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, description: e.target.value })}
+                    placeholder="e.g., Salary Deposit, Grocery Store"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Amount (use - for debit)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editTransaction.amount}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, amount: e.target.value })}
+                    placeholder="150.00 or -150.00"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Category</label>
+                  <select
+                    value={editTransaction.category}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, category: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                  >
+                    <option value="Income">Income</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Dining">Dining</option>
+                    <option value="Bills">Bills</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Account Type</label>
+                  <select
+                    value={editTransaction.accountType}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, accountType: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                  >
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Date</label>
+                  <input
+                    type="date"
+                    value={editTransaction.date}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, date: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleUpdateTransaction}
+                  className="flex-1 rounded-xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+                >
+                  Update Transaction
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEditTransactionModal(false);
+                    setSelectedTransaction(null);
+                    setEditTransaction({
+                      description: '',
+                      amount: '',
+                      category: 'Other',
+                      accountType: 'checking',
+                      date: new Date().toISOString().split('T')[0],
+                    });
+                  }}
+                  className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-white hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Message Modal */}
+      {showSendMessageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-900 p-8">
+            <h2 className="mb-6 text-2xl font-semibold text-white">Send Message to User</h2>
+            <div className="space-y-4">
+              {selectedUserId === '' && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">Select User</label>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50"
+                    required
+                  >
+                    <option value="">Choose a user...</option>
+                    {displayUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {selectedUserId && (
+                <div className="rounded-lg border border-white/5 bg-white/5 p-3">
+                  <p className="text-sm text-slate-300">
+                    Sending to: <span className="font-semibold text-white">{displayUsers.find(u => u.id === selectedUserId)?.name}</span>
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-200">
+                  <span>Message</span>
+                  <span className={`text-xs ${adminMessage.length > 1000 ? 'text-red-400' : 'text-slate-500'}`}>
+                    {adminMessage.length}/1000
+                  </span>
+                </label>
+                <textarea
+                  value={adminMessage}
+                  onChange={(e) => setAdminMessage(e.target.value.slice(0, 1000))}
+                  placeholder="Enter your message here. This will be displayed on the user's profile..."
+                  rows="6"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleSendMessage}
+                  className="flex-1 rounded-xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+                >
+                  Send Message
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSendMessageModal(false);
+                    setAdminMessage('');
                     setSelectedUserId('');
                   }}
                   className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-white hover:bg-white/5"

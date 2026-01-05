@@ -17,6 +17,7 @@ function Dashboard() {
     { id: 2, title: 'Card purchase', detail: 'Spent $152.43 at Grocery Store', time: new Date(Date.now() - 30 * 60 * 1000).toISOString(), read: false },
     { id: 3, title: 'Login', detail: 'New sign-in from Chrome on Linux', time: new Date(Date.now() - 60 * 60 * 1000).toISOString(), read: false },
   ]);
+  const [adminMessages, setAdminMessages] = useState([]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const formatTime = (isoString) => {
@@ -43,6 +44,45 @@ function Dashboard() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [copiedField, setCopiedField] = useState('');
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+  const [showRoutingNumber, setShowRoutingNumber] = useState(false);
+  const [showBalance, setShowBalance] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, sender: 'bot', text: 'Hello! 👋 How can we help you today?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+
+  const handleChatSend = () => {
+    if (!chatInput.trim()) return;
+    const userMessage = { id: chatMessages.length + 1, sender: 'user', text: chatInput };
+    setChatMessages([...chatMessages, userMessage]);
+    setChatInput('');
+    setTimeout(() => {
+      let botResponse = '';
+      const input = chatInput.toLowerCase();
+      if (input.includes('balance') || input.includes('how much')) {
+        botResponse = `Your current balance is $${currentUser?.balance?.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Is there anything else I can help you with?`;
+      } else if (input.includes('transfer')) {
+        botResponse = 'You can make a transfer by clicking the "Transfer Money" option in the main menu. Would you like me to guide you through it?';
+      } else if (input.includes('bill')) {
+        botResponse = 'Need to pay a bill? Head to the "Pay Bills" section to manage your bills. Let me know if you need help!';
+      } else if (input.includes('account number') || input.includes('routing')) {
+        botResponse = 'You can find your account and routing number on your dashboard in the Account Details section. Is there anything else?';
+      } else if (input.includes('security') || input.includes('password')) {
+        botResponse = 'For security questions, visit the Security section in your settings. Always keep your password safe!';
+      } else if (input.includes('hello') || input.includes('hi')) {
+        botResponse = 'Hi there! How can I assist you with your Aurora Bank account today? 😊';
+      } else if (input.includes('thank')) {
+        botResponse = "You're welcome! Is there anything else I can help you with?";
+      } else {
+        botResponse = "I'm here to help! You can ask me about your balance, transfers, bills, account details, or security settings. What would you like to know?";
+      }
+      setChatMessages(prev => [...prev, { id: chatMessages.length + 2, sender: 'bot', text: botResponse }]);
+    }, 500);
+  };
+
 
   const handleToggleNotifications = () => {
     setShowNotifications((prev) => {
@@ -151,6 +191,28 @@ function Dashboard() {
     navigate(location.pathname, { replace: true, state: {} });
   }, [location.state, location.pathname, navigate]);
 
+  // Fetch admin messages
+  useEffect(() => {
+    const fetchAdminMessages = async () => {
+      try {
+        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        const res = await fetch(`${apiBase}/admin/users/${currentUser._id}/messages`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAdminMessages(data.messages || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch admin messages:', err);
+      }
+    };
+
+    if (currentUser?._id) {
+      fetchAdminMessages();
+    }
+  }, [currentUser?._id]);
+
   if (!currentUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
@@ -216,6 +278,13 @@ function Dashboard() {
       setFormData((prev) => ({ ...prev, avatarUrl: reader.result }));
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCopyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(''), 2000);
+    });
   };
 
   return (
@@ -298,7 +367,7 @@ function Dashboard() {
                 )}
                 <div className="hidden md:block">
                   <div className="text-sm font-semibold text-white">{user.name}</div>
-                  <div className="text-xs text-slate-400">{user.accountNumber}</div>
+                  <div className="text-xs text-slate-400 font-mono">{user.accountNumber || 'Loading...'}</div>
                 </div>
               </button>
 
@@ -374,24 +443,137 @@ function Dashboard() {
           <p className="mt-2 text-slate-300">Here's what's happening with your accounts today.</p>
         </div>
 
+        {/* Admin Messages Alert */}
+        {adminMessages.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
+            <div className="flex items-start gap-4">
+              <div className="mt-1 text-2xl">📢</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-300">Messages from Aurora Bank</h3>
+                <div className="mt-3 space-y-2">
+                  {adminMessages.slice(0, 3).map((msg, idx) => (
+                    <div key={idx} className="text-sm text-blue-100">
+                      <p className="mb-1">{msg.message}</p>
+                      <p className="text-xs text-blue-300/70">
+                        {new Date(msg.createdAt).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {adminMessages.length > 3 && (
+                  <p className="mt-2 text-xs text-blue-300">
+                    +{adminMessages.length - 3} more message{adminMessages.length - 3 !== 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Account Balance Cards */}
         <div className="mb-8 grid gap-6 md:grid-cols-3">
           <div className="card primary md:col-span-2">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-100">Total Balance</p>
-                <p className="mt-3 text-4xl font-semibold text-white">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <p className="text-4xl font-semibold text-white">
+                    {showBalance 
+                      ? `$${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                      : '$ •••••••'}
+                  </p>
+                  <button
+                    onClick={() => setShowBalance(!showBalance)}
+                    className="text-cyan-200 hover:text-white transition text-xl"
+                    title={showBalance ? 'Hide balance' : 'Show balance'}
+                  >
+                    {showBalance ? '🔓' : '🔒'}
+                  </button>
+                </div>
               </div>
               <span className="rounded-full bg-white/10 px-4 py-2 text-xs text-cyan-50">Premium Account</span>
             </div>
-            <div className="mt-8 grid grid-cols-2 gap-4">
+            
+            {/* Account Details - Prominently displayed */}
+            <div className="mb-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-cyan-200 mb-1">Account Number</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-lg font-mono font-semibold text-white">
+                      {showAccountNumber 
+                        ? (user.accountNumber || 'Loading...') 
+                        : '••••••••••••'}
+                    </p>
+                    <button
+                      onClick={() => setShowAccountNumber(!showAccountNumber)}
+                      className="text-cyan-300 hover:text-cyan-100 transition text-sm"
+                      title={showAccountNumber ? 'Hide account number' : 'Show account number'}
+                    >
+                      {showAccountNumber ? '�' : '🔒'}
+                    </button>
+                    {user.accountNumber && showAccountNumber && (
+                      <button
+                        onClick={() => handleCopyToClipboard(user.accountNumber, 'account')}
+                        className="text-cyan-300 hover:text-cyan-100 transition"
+                        title="Copy account number"
+                      >
+                        {copiedField === 'account' ? '✓' : '📋'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-cyan-200 mb-1">Routing Number</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-lg font-mono font-semibold text-white">
+                      {showRoutingNumber 
+                        ? (user.routingNumber || '026009593') 
+                        : '•••••••••'}
+                    </p>
+                    <button
+                      onClick={() => setShowRoutingNumber(!showRoutingNumber)}
+                      className="text-cyan-300 hover:text-cyan-100 transition text-sm"
+                      title={showRoutingNumber ? 'Hide routing number' : 'Show routing number'}
+                    >
+                      {showRoutingNumber ? '�' : '🔒'}
+                    </button>
+                    {showRoutingNumber && (
+                      <button
+                        onClick={() => handleCopyToClipboard(user.routingNumber || '026009593', 'routing')}
+                        className="text-cyan-300 hover:text-cyan-100 transition"
+                        title="Copy routing number"
+                      >
+                        {copiedField === 'routing' ? '✓' : '📋'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-cyan-300 mt-2">💡 Share these details to receive transfers</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs text-slate-300">Checking</p>
-                <p className="mt-2 text-2xl font-semibold text-white">${user.checking.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">
+                  {showBalance 
+                    ? `$${user.checking.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                    : '$ ••••••'}
+                </p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs text-slate-300">Savings</p>
-                <p className="mt-2 text-2xl font-semibold text-white">${user.savings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">
+                  {showBalance 
+                    ? `$${user.savings.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                    : '$ ••••••'}
+                </p>
               </div>
             </div>
           </div>
@@ -663,22 +845,97 @@ function Dashboard() {
               {/* Account Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Account Information</h3>
+                
+                {/* Highlighted Account Details */}
+                <div className="rounded-xl border-2 border-cyan-400/50 bg-cyan-400/10 p-5">
+                  <p className="text-sm font-semibold text-cyan-200 mb-4">🏦 Your Account Details</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs text-cyan-300 mb-1">Account Number</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-mono font-semibold text-lg">
+                            {showAccountNumber 
+                              ? (user.accountNumber || 'Generating...') 
+                              : '••••••••••••'}
+                          </p>
+                          <button
+                            onClick={() => setShowAccountNumber(!showAccountNumber)}
+                            className="text-cyan-300 hover:text-cyan-100 transition"
+                            title={showAccountNumber ? 'Hide' : 'Show'}
+                          >
+                            {showAccountNumber ? '�' : '🔒'}
+                          </button>
+                        </div>
+                      </div>
+                      {user.accountNumber && showAccountNumber && (
+                        <button
+                          onClick={() => handleCopyToClipboard(user.accountNumber, 'account-modal')}
+                          className="px-3 py-2 rounded-lg bg-cyan-400/20 hover:bg-cyan-400/30 text-cyan-200 text-sm transition"
+                        >
+                          {copiedField === 'account-modal' ? '✓ Copied' : '📋 Copy'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs text-cyan-300 mb-1">Routing Number</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-mono font-semibold text-lg">
+                            {showRoutingNumber 
+                              ? (user.routingNumber || '026009593') 
+                              : '•••••••••'}
+                          </p>
+                          <button
+                            onClick={() => setShowRoutingNumber(!showRoutingNumber)}
+                            className="text-cyan-300 hover:text-cyan-100 transition"
+                            title={showRoutingNumber ? 'Hide' : 'Show'}
+                          >
+                            {showRoutingNumber ? '�' : '🔒'}
+                          </button>
+                        </div>
+                      </div>
+                      {showRoutingNumber && (
+                        <button
+                          onClick={() => handleCopyToClipboard(user.routingNumber || '026009593', 'routing-modal')}
+                          className="px-3 py-2 rounded-lg bg-cyan-400/20 hover:bg-cyan-400/30 text-cyan-200 text-sm transition"
+                        >
+                          {copiedField === 'routing-modal' ? '✓ Copied' : '📋 Copy'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-cyan-300 mt-3">💡 Share these with others to receive transfers to your Aurora Bank account</p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                    <p className="text-xs text-slate-400 mb-1">Account Number</p>
-                    <p className="text-white font-mono font-medium text-lg">{user.accountNumber}</p>
-                  </div>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/10">
                     <p className="text-xs text-slate-400 mb-1">Total Balance</p>
-                    <p className="text-white font-semibold text-lg">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-white font-semibold text-lg">
+                      {showBalance 
+                        ? `$${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                        : '$ •••••••'}
+                    </p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                    <p className="text-xs text-slate-400 mb-1">Checking</p>
-                    <p className="text-white font-semibold text-lg">${user.checking.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-slate-400 mb-1">Account Type</p>
+                    <p className="text-white font-semibold">Personal Checking & Savings</p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                    <p className="text-xs text-slate-400 mb-1">Savings</p>
-                    <p className="text-white font-semibold text-lg">${user.savings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-slate-400 mb-1">Checking Balance</p>
+                    <p className="text-white font-semibold text-lg">
+                      {showBalance 
+                        ? `$${user.checking.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                        : '$ ••••••'}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                    <p className="text-xs text-slate-400 mb-1">Savings Balance</p>
+                    <p className="text-white font-semibold text-lg">
+                      {showBalance 
+                        ? `$${user.savings.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                        : '$ ••••••'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -699,6 +956,76 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Chatbot Widget */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {chatOpen ? (
+          <div className="w-96 h-[600px] bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl border border-cyan-500/30 flex flex-col overflow-hidden">
+            {/* Chat Header */}
+            <div className="bg-gradient-to-r from-cyan-600 to-cyan-500 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg">💬</div>
+                <div>
+                  <p className="font-semibold text-white">Aurora Support</p>
+                  <p className="text-xs text-cyan-100">Always here to help</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs px-4 py-3 rounded-2xl ${
+                      msg.sender === 'user'
+                        ? 'bg-cyan-600 text-white rounded-br-none'
+                        : 'bg-white/10 text-slate-100 rounded-bl-none border border-white/20'
+                    }`}
+                  >
+                    <p className="text-sm">{msg.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chat Input */}
+            <div className="border-t border-white/10 p-4 flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleChatSend()}
+                placeholder="Type your question..."
+                className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+              />
+              <button
+                onClick={handleChatSend}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition font-medium text-sm"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center text-2xl border border-cyan-400/50"
+            title="Open chat"
+          >
+            💬
+          </button>
+        )}
+      </div>
     </div>
   );
 }

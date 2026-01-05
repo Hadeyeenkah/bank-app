@@ -6,7 +6,7 @@ import AuroraBankLogo from '../components/AuroraBankLogo';
 import '../App.css';
 
 function BillsPage() {
-  const { currentUser, payBill } = useBankContext();
+  const { currentUser, payBill, isAuthenticated } = useBankContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [formData, setFormData] = useState({
@@ -20,17 +20,20 @@ function BillsPage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [loading, setLoading] = useState(false);
-  const [recentPayees, setRecentPayees] = useState([
-    { id: 1, name: 'Electric Company', category: 'Utilities' },
-    { id: 2, name: 'Internet Provider', category: 'Internet' },
-    { id: 3, name: 'Phone Company', category: 'Phone' },
-  ]);
+  const [recentPayees, setRecentPayees] = useState([]);
   const [billHistory, setBillHistory] = useState([]);
   const [receipt, setReceipt] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   const billCategories = ['Utilities', 'Internet', 'Phone', 'Rent', 'Insurance', 'Credit Card', 'Other'];
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated && currentUser === null) {
+      navigate('/login', { state: { from: '/bills', message: 'Please log in to access bill payments' } });
+    }
+  }, [isAuthenticated, currentUser, navigate]);
 
   // Fetch bill payment history
   useEffect(() => {
@@ -44,21 +47,56 @@ function BillsPage() {
         const res = await fetch(`${apiBase}/bills?limit=10`, {
           method: 'GET',
           credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
+        
+        // Handle all response types gracefully
         if (res.ok) {
           const data = await res.json();
-          setBillHistory(data.bills || []);
-        } else if (res.status === 500) {
-          console.log('Server error fetching bills - may be initial setup');
+          const bills = data.bills || [];
+          setBillHistory(bills);
+          
+          // Extract unique payees for recent payees list
+          if (bills.length > 0) {
+            const uniquePayees = [];
+            const payeeNames = new Set();
+            
+            for (const bill of bills) {
+              if (!payeeNames.has(bill.payee) && uniquePayees.length < 5) {
+                payeeNames.add(bill.payee);
+                uniquePayees.push({
+                  id: bill._id,
+                  name: bill.payee,
+                  category: bill.category || 'Other',
+                });
+              }
+            }
+            
+            if (uniquePayees.length > 0) {
+              setRecentPayees(uniquePayees);
+            }
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          console.log('Not authenticated - redirecting to login');
+          navigate('/login', { state: { from: '/bills', message: 'Please log in to continue' } });
+        } else {
+          // For any other error (including 500), just log and continue with empty data
+          console.log('Could not fetch bill history, status:', res.status);
           setBillHistory([]);
         }
       } catch (err) {
-        console.log('Failed to fetch bill history:', err);
+        // Network error or other issues - fail silently
+        console.log('Failed to fetch bill history:', err.message);
         setBillHistory([]);
       }
     };
-    fetchBillHistory();
-  }, [apiBase, currentUser]);
+    
+    // Add a small delay to ensure auth is ready
+    const timer = setTimeout(fetchBillHistory, 300);
+    return () => clearTimeout(timer);
+  }, [apiBase, currentUser, navigate]);
 
   // Handle flash message from successful transfer
   useEffect(() => {
@@ -73,26 +111,48 @@ function BillsPage() {
   }, [location.state, navigate, location.pathname]);
 
   const validateForm = () => {
+    // Clear any existing messages
+    setMessage('');
+    setMessageType('');
+    
     if (!formData.payee.trim()) {
       setMessageType('error');
       setMessage('Payee name is required');
       return false;
     }
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+    
+    const amount = parseFloat(formData.amount);
+    if (!formData.amount || isNaN(amount) || amount <= 0) {
       setMessageType('error');
       setMessage('Enter a valid amount greater than $0.00');
       return false;
     }
+    
+    if (amount > 100000) {
+      setMessageType('error');
+      setMessage('Amount exceeds maximum limit of $100,000.00');
+      return false;
+    }
+    
     if (!formData.accountNumber.trim()) {
       setMessageType('error');
       setMessage('Account number is required');
       return false;
     }
 
-    const balance = formData.fromAccount === 'checking' ? currentUser?.checking : currentUser?.savings;
-    if (balance && balance < parseFloat(formData.amount)) {
+    if (!currentUser) {
       setMessageType('error');
-      setMessage(`Insufficient funds. Available: $${balance.toFixed(2)}`);
+      setMessage('User session expired. Please log in again.');
+      return false;
+    }
+
+    const balance = formData.fromAccount === 'checking' 
+      ? (currentUser.checking || 0) 
+      : (currentUser.savings || 0);
+    
+    if (balance < amount) {
+      setMessageType('error');
+      setMessage(`Insufficient funds. Available in ${formData.fromAccount}: $${balance.toFixed(2)}`);
       return false;
     }
 
@@ -102,78 +162,166 @@ function BillsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     setLoading(true);
-    setMessage('');
-    setMessageType('');
+    setMessage('Processing your payment...');
+    setMessageType('info');
 
-    const result = await payBill(currentUser.id, {
-      payee: formData.payee,
-      amount: formData.amount,
-      category: formData.category,
-      accountNumber: formData.accountNumber,
-      fromAccount: formData.fromAccount,
-      note: formData.note,
-    });
-
-    setLoading(false);
-
-    if (result.success) {
-      setMessageType('success');
-      setMessage('✓ Bill payment completed successfully!');
-      
-      // Create receipt
-      setReceipt({
-        id: result.bill.id,
-        payee: result.bill.payee,
-        amount: result.bill.amount,
-        category: result.bill.category,
-        account: formData.fromAccount,
-        reference: result.bill.reference,
-        date: new Date(),
-        status: result.bill.status,
+    try {
+      const result = await payBill(currentUser.id, {
+        payee: formData.payee.trim(),
+        amount: parseFloat(formData.amount),
+        category: formData.category,
+        accountNumber: formData.accountNumber.trim(),
+        fromAccount: formData.fromAccount,
+        note: formData.note.trim(),
       });
-      
-      setShowReceiptModal(true);
 
-      // Add to recent payees if not already there
-      if (!recentPayees.some(p => p.name === formData.payee)) {
-        setRecentPayees([
-          { id: Date.now(), name: formData.payee, category: formData.category },
-          ...recentPayees.slice(0, 2),
-        ]);
+      setLoading(false);
+
+      if (result.success) {
+        setMessageType('success');
+        setMessage('✓ Bill payment completed successfully!');
+        
+        // Create receipt with proper data
+        const billData = result.bill || {};
+        const receiptData = {
+          id: billData.id || billData._id || Date.now(),
+          payee: billData.payee || formData.payee,
+          amount: parseFloat(billData.amount || formData.amount),
+          category: billData.category || formData.category,
+          account: formData.fromAccount,
+          reference: billData.reference || `BILL-${Date.now()}`,
+          date: new Date(billData.paymentDate || Date.now()),
+          status: billData.status || 'completed',
+          accountNumber: formData.accountNumber,
+        };
+        
+        setReceipt(receiptData);
+        setShowReceiptModal(true);
+
+        // Add to recent payees if not already there
+        const payeeExists = recentPayees.some(p => p.name === formData.payee);
+        if (!payeeExists) {
+          const newPayee = { 
+            id: Date.now(), 
+            name: formData.payee, 
+            category: formData.category 
+          };
+          setRecentPayees([newPayee, ...recentPayees.slice(0, 4)]);
+        }
+
+        // Update bill history locally
+        const newBill = {
+          _id: billData.id || billData._id || Date.now(),
+          payee: formData.payee,
+          amount: parseFloat(formData.amount),
+          category: formData.category,
+          paymentDate: new Date().toISOString(),
+          reference: billData.reference || `BILL-${Date.now()}`,
+          status: 'completed',
+        };
+        setBillHistory([newBill, ...billHistory]);
+
+        // Reset form after short delay
+        setTimeout(() => {
+          setFormData({
+            payee: '',
+            amount: '',
+            fromAccount: 'checking',
+            category: 'Utilities',
+            accountNumber: '',
+            note: '',
+          });
+        }, 1500);
+      } else {
+        setMessageType('error');
+        setMessage(result.message || 'Failed to process bill payment. Please try again.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-
-      // Reset form
-      setTimeout(() => {
-        setFormData({
-          payee: '',
-          amount: '',
-          fromAccount: 'checking',
-          category: 'Utilities',
-          accountNumber: '',
-          note: '',
-        });
-      }, 1000);
-    } else {
+    } catch (error) {
+      setLoading(false);
       setMessageType('error');
-      setMessage(result.message || 'Failed to process bill payment');
+      setMessage('Network error. Please check your connection and try again.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      console.error('Bill payment error:', error);
     }
   };
 
   const handleQuickPayee = (payee) => {
-    setFormData({ ...formData, payee: payee.name, category: payee.category });
+    setFormData({ 
+      ...formData, 
+      payee: payee.name, 
+      category: payee.category 
+    });
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleReceiptClose = () => {
     setShowReceiptModal(false);
-    setReceipt(null);
+    setTimeout(() => {
+      setReceipt(null);
+      setMessage('');
+      setMessageType('');
+    }, 300);
   };
 
   const handlePrint = () => {
     window.print();
   };
+
+  const handleDownloadReceipt = () => {
+    if (!receipt) return;
+    
+    const receiptText = `
+AURORA BANK, FSB
+Bill Payment Receipt
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Payment Details:
+Payee: ${receipt.payee}
+Amount: $${receipt.amount.toFixed(2)}
+Category: ${receipt.category}
+Account Number: ${receipt.accountNumber || 'N/A'}
+
+Transaction Information:
+From Account: ${receipt.account.charAt(0).toUpperCase() + receipt.account.slice(1)}
+Reference: ${receipt.reference}
+Date: ${receipt.date.toLocaleString()}
+Status: ${receipt.status.toUpperCase()}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Thank you for banking with Aurora Bank!
+    `.trim();
+    
+    const blob = new Blob([receiptText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bill-payment-receipt-${receipt.reference}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Don't render if not authenticated
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <p className="text-xl text-slate-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -209,6 +357,8 @@ function BillsPage() {
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
                   placeholder="Electric Company, Rent Landlord, etc."
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50 transition"
+                  maxLength="100"
+                  disabled={loading}
                   required
                 />
               </div>
@@ -220,6 +370,7 @@ function BillsPage() {
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50 transition"
+                    disabled={loading}
                   >
                     {billCategories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
@@ -233,9 +384,14 @@ function BillsPage() {
                     value={formData.fromAccount}
                     onChange={(e) => setFormData({ ...formData, fromAccount: e.target.value })}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-300/50 transition"
+                    disabled={loading}
                   >
-                    <option value="checking">Checking - ${currentUser?.checking?.toFixed(2)}</option>
-                    <option value="savings">Savings - ${currentUser?.savings?.toFixed(2)}</option>
+                    <option value="checking">
+                      Checking - ${((currentUser?.checking || 0).toFixed(2))}
+                    </option>
+                    <option value="savings">
+                      Savings - ${((currentUser?.savings || 0).toFixed(2))}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -248,6 +404,8 @@ function BillsPage() {
                   onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
                   placeholder="Customer/Account number at payee"
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50 transition"
+                  maxLength="50"
+                  disabled={loading}
                   required
                 />
               </div>
@@ -259,13 +417,21 @@ function BillsPage() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
+                    max="100000"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     placeholder="0.00"
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-8 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50 transition"
+                    disabled={loading}
                     required
                   />
                 </div>
+                {formData.amount && parseFloat(formData.amount) > 0 && (
+                  <p className="text-xs text-slate-400">
+                    You are paying ${parseFloat(formData.amount).toFixed(2)}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -275,14 +441,23 @@ function BillsPage() {
                   onChange={(e) => setFormData({ ...formData, note: e.target.value })}
                   placeholder="Add a note for your records..."
                   rows="2"
+                  maxLength="200"
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50 transition resize-none"
+                  disabled={loading}
                 />
+                {formData.note && (
+                  <p className="text-xs text-slate-400">
+                    {formData.note.length}/200 characters
+                  </p>
+                )}
               </div>
 
               {message && (
                 <div className={`rounded-xl border p-4 ${
                   messageType === 'success'
                     ? 'border-green-500/20 bg-green-500/10 text-green-400'
+                    : messageType === 'info'
+                    ? 'border-blue-500/20 bg-blue-500/10 text-blue-400'
                     : 'border-red-500/20 bg-red-500/10 text-red-400'
                 }`}>
                   {message}
@@ -305,34 +480,43 @@ function BillsPage() {
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-slate-400 mb-1">Checking</p>
-                  <p className="text-2xl font-semibold text-cyan-400">${currentUser?.checking?.toFixed(2)}</p>
+                  <p className="text-2xl font-semibold text-cyan-400">
+                    ${((currentUser?.checking || 0).toFixed(2))}
+                  </p>
                 </div>
                 <div className="border-t border-white/10 pt-3">
                   <p className="text-xs text-slate-400 mb-1">Savings</p>
-                  <p className="text-2xl font-semibold text-cyan-400">${currentUser?.savings?.toFixed(2)}</p>
+                  <p className="text-2xl font-semibold text-cyan-400">
+                    ${((currentUser?.savings || 0).toFixed(2))}
+                  </p>
                 </div>
                 <div className="border-t border-white/10 pt-3">
                   <p className="text-xs text-slate-400 mb-1">Total Balance</p>
-                  <p className="text-2xl font-semibold text-white">${currentUser?.balance?.toFixed(2)}</p>
+                  <p className="text-2xl font-semibold text-white">
+                    ${((currentUser?.balance || 0).toFixed(2))}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h3 className="mb-4 text-sm font-semibold text-white">Recent Payees</h3>
-              <div className="space-y-2">
-                {recentPayees.map((payee) => (
-                  <button
-                    key={payee.id}
-                    onClick={() => handleQuickPayee(payee)}
-                    className="block w-full text-left rounded-lg p-3 hover:bg-white/10 transition text-sm"
-                  >
-                    <div className="font-medium text-white">{payee.name}</div>
-                    <div className="text-xs text-slate-400">{payee.category}</div>
-                  </button>
-                ))}
+            {recentPayees.length > 0 && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="mb-4 text-sm font-semibold text-white">Recent Payees</h3>
+                <div className="space-y-2">
+                  {recentPayees.map((payee) => (
+                    <button
+                      key={payee.id}
+                      onClick={() => handleQuickPayee(payee)}
+                      disabled={loading}
+                      className="block w-full text-left rounded-lg p-3 hover:bg-white/10 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="font-medium text-white">{payee.name}</div>
+                      <div className="text-xs text-slate-400">{payee.category}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -401,26 +585,50 @@ function BillsPage() {
                 <span className="text-slate-400">Category:</span>
                 <span className="text-white">{receipt.category}</span>
               </div>
+              {receipt.accountNumber && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Account #:</span>
+                  <span className="font-mono text-white">{receipt.accountNumber}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-400">From:</span>
                 <span className="capitalize text-white">{receipt.account}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Date:</span>
-                <span className="text-white">{receipt.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-white">
+                  {receipt.date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Reference:</span>
                 <span className="font-mono text-xs text-cyan-400">{receipt.reference}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Status:</span>
+                <span className="text-green-400 font-semibold uppercase">{receipt.status}</span>
+              </div>
             </div>
 
             <div className="mt-6 flex gap-3">
               <button
+                onClick={handleDownloadReceipt}
+                className="flex-1 rounded-lg border border-cyan-400/50 px-4 py-3 text-sm font-semibold text-cyan-400 hover:bg-cyan-400/10 transition"
+              >
+                💾 Download
+              </button>
+              <button
                 onClick={handlePrint}
                 className="flex-1 rounded-lg border border-cyan-400/50 px-4 py-3 text-sm font-semibold text-cyan-400 hover:bg-cyan-400/10 transition"
               >
-                🖨️ Print Receipt
+                🖨️ Print
               </button>
               <button
                 onClick={handleReceiptClose}
