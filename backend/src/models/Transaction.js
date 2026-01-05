@@ -64,7 +64,6 @@ const TransactionSchema = new mongoose.Schema(
 
     reference: {
       type: String,
-      unique: true,
     },
   },
   { timestamps: true }
@@ -73,5 +72,6 @@ const TransactionSchema = new mongoose.Schema(
 // Index for faster queries
 TransactionSchema.index({ userId: 1, date: -1 });
 TransactionSchema.index({ status: 1 });
+TransactionSchema.index({ reference: 1, userId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Transaction', TransactionSchema);

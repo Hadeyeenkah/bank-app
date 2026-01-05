@@ -617,29 +617,56 @@ function Dashboard() {
 
         {/* Recent Transactions */}
         <div className="mb-8">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-white">Recent Transactions</h2>
-            <Link to="/transactions" className="text-sm text-cyan-200 hover:text-cyan-100">View all</Link>
+            <Link to="/transactions" className="text-sm text-cyan-200 hover:text-cyan-100">View all →</Link>
           </div>
-          <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
-            <div className="space-y-4">
+          <div className="rounded-2xl border border-white/5 bg-white/5 overflow-hidden">
+            <div className="divide-y divide-white/5">
               {recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5">
-                      <span className="text-lg">{transaction.amount < 0 ? '↓' : '↑'}</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-white">{transaction.description}</div>
-                      <div className="text-xs text-slate-400">
-                        {transaction.date} • {transaction.category}
-                        {transaction.status === 'pending' && ' • Pending approval'}
-                        {transaction.status === 'rejected' && ' • Rejected'}
+                <div key={transaction.id} className="px-4 py-4 sm:px-6 hover:bg-white/[0.03] transition">
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Left side: Icon + Description */}
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold ${
+                        transaction.amount < 0 
+                          ? 'bg-red-500/20 text-red-400' 
+                          : 'bg-green-500/20 text-green-400'
+                      }`}>
+                        {transaction.amount < 0 ? '−' : '+'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-white truncate">
+                          {transaction.description}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1 text-xs text-slate-400">
+                          <span>{transaction.date}</span>
+                          <span>•</span>
+                          <span className="capitalize">{transaction.category}</span>
+                          {transaction.status === 'pending' && (
+                            <>
+                              <span>•</span>
+                              <span className="text-yellow-400">Pending</span>
+                            </>
+                          )}
+                          {transaction.status === 'rejected' && (
+                            <>
+                              <span>•</span>
+                              <span className="text-red-400">Rejected</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className={`text-lg font-semibold ${transaction.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    
+                    {/* Right side: Amount */}
+                    <div className="flex-shrink-0 text-right">
+                      <div className={`text-sm sm:text-base font-semibold whitespace-nowrap ${
+                        transaction.amount < 0 ? 'text-red-400' : 'text-green-400'
+                      }`}>
+                        {transaction.amount < 0 ? '−' : '+'}${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
