@@ -102,11 +102,25 @@ function Dashboard() {
     });
   }, [currentUser]);
 
-  // Generate real notifications from user's actual transactions
+  // Generate real notifications from user's actual transactions and admin messages
   useEffect(() => {
     if (!currentUser) return;
 
     const realNotifications = [];
+
+    // Add admin messages first (high priority)
+    if (adminMessages && adminMessages.length > 0) {
+      adminMessages.slice(0, 5).forEach((msg) => {
+        realNotifications.push({
+          id: `admin-${msg.createdAt}`,
+          title: msg.message,
+          detail: 'Message from Aurora Bank',
+          time: new Date(msg.createdAt).toISOString(),
+          read: msg.read || false,
+          icon: '📢',
+        });
+      });
+    }
 
     // Get recent transactions (last 10)
     if (currentUser.transactions && currentUser.transactions.length > 0) {
@@ -154,8 +168,8 @@ function Dashboard() {
     // Sort by time (most recent first)
     realNotifications.sort((a, b) => new Date(b.time) - new Date(a.time));
     
-    setNotifications(realNotifications.slice(0, 10)); // Keep only top 10
-  }, [currentUser?.transactions, currentUser?.pendingTransactions]);
+    setNotifications(realNotifications.slice(0, 15)); // Keep top 15
+  }, [currentUser?.transactions, currentUser?.pendingTransactions, adminMessages]);
 
   // Handle flash notification coming from navigation state (e.g., transfer success)
   useEffect(() => {
@@ -176,7 +190,7 @@ function Dashboard() {
     navigate(location.pathname, { replace: true, state: {} });
   }, [location.state, location.pathname, navigate]);
 
-  // Fetch admin messages
+  // Fetch admin messages in real-time
   useEffect(() => {
     const fetchAdminMessages = async () => {
       try {
@@ -195,6 +209,9 @@ function Dashboard() {
 
     if (currentUser?._id) {
       fetchAdminMessages();
+      // Poll for new admin messages every 5 seconds
+      const interval = setInterval(fetchAdminMessages, 5000);
+      return () => clearInterval(interval);
     }
   }, [currentUser?._id]);
 
