@@ -16,7 +16,8 @@ function TransactionsPage() {
     const regular = (currentUser?.transactions || []).map((t, idx) => ({
       ...t,
       uniqueKey: `tx-${t.id}-${idx}`,
-      isPending: t.status === 'pending',
+      isPending: true,
+      status: 'pending',
     }));
     
     const pending = (currentUser?.pendingTransactions || [])
@@ -25,6 +26,7 @@ function TransactionsPage() {
         ...t,
         uniqueKey: `pending-${t.id}-${idx}`,
         isPending: true,
+        status: 'pending',
       }));
     
     return [...regular, ...pending].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -72,12 +74,12 @@ function TransactionsPage() {
   // Calculate summary stats
   const stats = useMemo(() => {
     const income = filteredTransactions
-      .filter(t => t.amount > 0 && !t.isPending)
+      .filter(t => t.amount > 0)
       .reduce((sum, t) => sum + t.amount, 0);
     
     const expenses = Math.abs(
       filteredTransactions
-        .filter(t => t.amount < 0 && !t.isPending)
+        .filter(t => t.amount < 0)
         .reduce((sum, t) => sum + t.amount, 0)
     );
     
@@ -95,7 +97,7 @@ function TransactionsPage() {
       t.category || 'Other',
       t.accountType || 'N/A',
       t.amount.toFixed(2),
-      t.isPending ? 'Pending' : 'Completed',
+      t.isPending ? 'Pending Admin Approval' : 'Completed',
     ]);
     
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -130,6 +132,9 @@ function TransactionsPage() {
             <h1 className="mb-1 sm:mb-2 text-2xl sm:text-3xl font-semibold text-white">Transactions</h1>
             <p className="text-sm text-slate-300">
               {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+            </p>
+            <p className="mt-1 text-xs text-yellow-300">
+              All transactions are successful and pending admin approval.
             </p>
           </div>
           <button
@@ -269,7 +274,7 @@ function TransactionsPage() {
                           </span>
                           {transaction.isPending && (
                             <span className="inline-flex items-center rounded-full bg-yellow-500/20 px-2 py-0.5 text-[10px] font-medium text-yellow-400">
-                              PENDING
+                              PENDING APPROVAL
                             </span>
                           )}
                         </div>

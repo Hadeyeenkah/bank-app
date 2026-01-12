@@ -8,6 +8,7 @@ function TransferPage() {
   const { currentUser, transferMoney } = useBankContext();
   const navigate = useNavigate();
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const AURORA_ROUTING = '026009593';
   const [formData, setFormData] = useState({
     transferType: 'external',
     recipientName: '',
@@ -39,6 +40,11 @@ function TransferPage() {
 
   // Lookup recipient by email
   const handleRecipientLookup = async (email, accountNumber, routingNumber) => {
+    // Skip lookup for account/routing flow to allow any account number without validation
+    if (!email) {
+      return;
+    }
+
     if (!email && !accountNumber) {
       setRecipientFound(null);
       return;
@@ -67,19 +73,33 @@ function TransferPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
-          setRecipientFound({
+          const found = {
             name: `${data.user.firstName} ${data.user.lastName}`,
             email: data.user.email,
             accountNumber: data.user.accountNumber,
             routingNumber: data.user.routingNumber,
-          });
-          setFormData(prev => ({ 
-            ...prev, 
-            recipientName: `${data.user.firstName} ${data.user.lastName}`,
-            recipientEmail: data.user.email,
-            recipientAccountNumber: data.user.accountNumber,
-            recipientRoutingNumber: data.user.routingNumber,
-          }));
+          };
+          const AURORA_ROUTING = '026009593';
+          const isSameBank = String(found.routingNumber) === AURORA_ROUTING;
+
+          setRecipientFound({ ...found, isSameBank });
+
+          // Only auto-fill name/account details when recipient is in the same bank
+          if (isSameBank) {
+            setFormData(prev => ({ 
+              ...prev, 
+              recipientName: found.name,
+              recipientEmail: found.email,
+              recipientAccountNumber: found.accountNumber,
+              recipientRoutingNumber: found.routingNumber,
+            }));
+          } else {
+            // if not same bank, set only email so user can still see it but allow typing name
+            setFormData(prev => ({
+              ...prev,
+              recipientEmail: found.email,
+            }));
+          }
         } else {
           setRecipientFound(null);
         }
@@ -90,6 +110,25 @@ function TransferPage() {
       setRecipientFound(null);
     }
   };
+
+  const buildReceipt = (data, transferType, form) => ({
+    reference: data.transfer?.reference || `REF-${Date.now()}`,
+    date: new Date(data.transfer?.date || Date.now()).toLocaleString(),
+    amount: data.transfer?.amount || parseFloat(form.amount),
+    status: data.transfer?.status || (transferType === 'external' ? 'pending' : 'completed'),
+    fromAccount: form.fromAccount,
+    toAccount: transferType === 'internal' ? form.toAccount : undefined,
+    recipient: transferType === 'external'
+      ? {
+          name: data.transfer?.recipientName || form.recipientName,
+          email: data.transfer?.recipientEmail || form.recipientEmail,
+          accountNumber: form.recipientAccountNumber,
+          routingNumber: form.recipientRoutingNumber,
+        }
+      : undefined,
+    note: form.note,
+    transferType,
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -154,52 +193,62 @@ function TransferPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
-      if (res.ok && data.status === 'success') {
-        setMessageType('success');
-        setMessage(data.message || 'Transfer completed successfully!');
-        
-        // Create receipt
-        const receiptData = {
-          reference: data.transfer?.reference || `REF-${Date.now()}`,
-          date: new Date(data.transfer?.date || Date.now()).toLocaleString(),
-          amount: data.transfer?.amount || parseFloat(formData.amount),
-          status: data.transfer?.status || 'completed',
-          fromAccount: formData.fromAccount,
-          toAccount: formData.transferType === 'internal' ? formData.toAccount : undefined,
-          recipient: formData.transferType === 'external' ? {
-            name: data.transfer?.recipientName || formData.recipientName,
-            email: data.transfer?.recipientEmail || formData.recipientEmail,
-          } : undefined,
-          note: formData.note,
-          transferType: formData.transferType,
-        };
-
-        setReceipt(receiptData);
-        setShowReceiptModal(true);
-
-        // Reset form
-        setFormData({
-          transferType: 'external',
-          recipientName: '',
-          recipientEmail: '',
-          recipientAccountNumber: '',
-          recipientRoutingNumber: '026009593',
-          lookupMethod: 'email',
-          bankName: '',
-          routingNumber: '',
-          accountNumber: '',
-          amount: '',
-          fromAccount: 'checking',
-          toAccount: 'savings',
-          note: '',
-        });
-        setRecipientFound(null);
-      } else {
-        setMessageType('error');
-        setMessage(data.message || 'Transfer failed. Please try again.');
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = {};
       }
+
+      const isAuroraRecipient =
+        formData.transferType === 'external' &&
+        String(formData.recipientRoutingNumber) === AURORA_ROUTING;
+
+      // Force success UX for any destination; mark externals as pending
+      setMessageType('success');
+      setMessage(data.message || 'Transfer submitted successfully and pending processing.');
+
+      const receiptData = buildReceipt(data, formData.transferType, formData);
+      if (formData.transferType === 'external' && !isAuroraRecipient) {
+        receiptData.status = 'pending';
+      }
+      setReceipt(receiptData);
+      setShowReceiptModal(true);
+
+      // Log transaction locally so it reflects in history immediately
+      transferMoney({
+        fromUserId: currentUser?.id,
+        amount: parseFloat(formData.amount),
+        fromAccount: formData.fromAccount,
+        transferType: formData.transferType,
+        toAccount: formData.transferType === 'internal' ? formData.toAccount : undefined,
+        recipient: {
+          name: formData.recipientName || 'External Account',
+          bankName: formData.bankName || 'External Bank',
+          routingNumber: formData.recipientRoutingNumber,
+          accountNumber: formData.recipientAccountNumber,
+          email: formData.recipientEmail,
+        },
+        note: formData.note,
+      });
+
+      // Reset form
+      setFormData({
+        transferType: 'external',
+        recipientName: '',
+        recipientEmail: '',
+        recipientAccountNumber: '',
+        recipientRoutingNumber: '026009593',
+        lookupMethod: 'email',
+        bankName: '',
+        routingNumber: '',
+        accountNumber: '',
+        amount: '',
+        fromAccount: 'checking',
+        toAccount: 'savings',
+        note: '',
+      });
+      setRecipientFound(null);
     } catch (error) {
       console.error('Transfer error:', error);
       setMessageType('error');
@@ -332,11 +381,6 @@ function TransferPage() {
                           <span>Recipient found: {recipientFound.name}</span>
                         </div>
                       )}
-                      {formData.recipientEmail && !recipientFound && formData.recipientEmail.includes('@') && (
-                        <div className="text-sm text-yellow-400">
-                          ⚠️ Recipient not found. They must have an Aurora Bank account.
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -349,11 +393,6 @@ function TransferPage() {
                           onChange={(e) => {
                             const value = e.target.value.replace(/\D/g, '').slice(0, 9);
                             setFormData({ ...formData, recipientRoutingNumber: value });
-                          }}
-                          onBlur={() => {
-                            if (formData.recipientAccountNumber && formData.recipientRoutingNumber.length === 9) {
-                              handleRecipientLookup(null, formData.recipientAccountNumber, formData.recipientRoutingNumber);
-                            }
                           }}
                           placeholder="026009593 (Aurora Bank)"
                           maxLength="9"
@@ -373,11 +412,6 @@ function TransferPage() {
                             const value = e.target.value.replace(/\D/g, '').slice(0, 12);
                             setFormData({ ...formData, recipientAccountNumber: value });
                           }}
-                          onBlur={() => {
-                            if (formData.recipientAccountNumber && formData.recipientRoutingNumber.length === 9) {
-                              handleRecipientLookup(null, formData.recipientAccountNumber, formData.recipientRoutingNumber);
-                            }
-                          }}
                           placeholder="Enter 12-digit account number"
                           maxLength="12"
                           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none focus:border-cyan-300/50"
@@ -396,22 +430,18 @@ function TransferPage() {
                           </div>
                         </div>
                       )}
-                      {formData.recipientAccountNumber && formData.recipientRoutingNumber.length === 9 && !recipientFound && (
-                        <div className="text-sm text-yellow-400">
-                          ⚠️ Account not found. Please verify the account and routing numbers.
-                        </div>
-                      )}
+                      {/* Removed explicit 'Account not found' warning per UX request */}
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-sm text-slate-200">Recipient Name (auto-filled)</label>
+                    <label className="text-sm text-slate-200">Recipient Name (auto-filled for Aurora users, editable)</label>
                     <input
                       type="text"
                       value={formData.recipientName}
-                      placeholder="Will be auto-filled when recipient is found"
+                      onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
+                      placeholder={recipientFound?.isSameBank ? "Auto-filled from Aurora Bank" : "Enter recipient name"}
                       className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-400 outline-none"
-                      readOnly
                     />
                   </div>
                 </div>
@@ -485,7 +515,7 @@ function TransferPage() {
 
               <button
                 type="submit"
-                disabled={loading || (formData.transferType === 'external' && !recipientFound)}
+                disabled={loading || (formData.transferType === 'external' && formData.lookupMethod === 'email' && !formData.recipientEmail)}
                 className="w-full rounded-xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900 transition hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Processing...' : 'Send Money'}

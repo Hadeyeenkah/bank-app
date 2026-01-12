@@ -31,6 +31,20 @@ function Dashboard() {
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
+
+  const formatCurrency = (value) => {
+    const numericValue = Number(value ?? 0);
+    return `$${numericValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  };
+
+  const getBalanceSizeClass = (value) => {
+    const length = formatCurrency(value).length;
+
+    if (length > 18) return 'text-xl sm:text-2xl md:text-3xl';
+    if (length > 15) return 'text-2xl sm:text-3xl md:text-4xl';
+    if (length > 12) return 'text-3xl sm:text-4xl md:text-5xl';
+    return 'text-4xl sm:text-5xl md:text-6xl';
+  };
   const [formData, setFormData] = useState({
     firstName: currentUser?.name.split(' ')[0] || '',
     lastName: currentUser?.name.split(' ').slice(1).join(' ') || '',
@@ -551,9 +565,9 @@ function Dashboard() {
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-100">Total Balance</p>
                 <div className="flex items-center gap-3 mt-3">
-                  <p className="text-4xl font-semibold text-white">
+                  <p className={`font-semibold text-white leading-tight break-words ${getBalanceSizeClass(user.balance)}`}>
                     {showBalance 
-                      ? `$${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                      ? formatCurrency(user.balance)
                       : '$ •••••••'}
                   </p>
                   <button
