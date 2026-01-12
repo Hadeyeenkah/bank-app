@@ -15,11 +15,25 @@ exports.connectDB = async () => {
   const maxRetries = Number(process.env.DB_CONNECT_MAX_RETRIES || 5);
   const retryDelayMs = Number(process.env.DB_CONNECT_RETRY_MS || 2000);
 
+  // Helper: mask credentials for logging and extract host/db
+  const maskUriForLog = (raw) => {
+    try {
+      // Basic masking for mongodb URIs
+      return raw
+        .replace(/:\/\/[\w.-]+:[^@]+@/i, '://****:****@')
+        .replace(/\?[^#]+$/, ''); // drop query params
+    } catch (_) {
+      return 'mongodb://****:****@<host>/<db>';
+    }
+  };
+
+  console.log('🗄️  MongoDB URI (sanitized):', maskUriForLog(uri));
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await mongoose.connect(uri, {
         autoIndex: true,
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 10000,
       });
       isConnected = true;
       console.log(`✅ MongoDB connected (attempt ${attempt}/${maxRetries})`);
