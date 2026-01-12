@@ -232,7 +232,7 @@ exports.refreshToken = async (req, res) => {
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: 'lax', // Same-origin cookies
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
@@ -246,8 +246,16 @@ exports.refreshToken = async (req, res) => {
 // Logout: clear cookies
 exports.logout = async (_req, res) => {
   try {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+    };
+    
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);

@@ -13,6 +13,7 @@ const billRoutes = require("./src/routes/billRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const transferRoutes = require("./src/routes/transferRoutes");
+const chatRoutes = require("./src/routes/chatRoutes");
 const { seedDemoUsers } = require("./src/utils/seedDemoUsers");
 
 const app = express();
@@ -108,6 +109,7 @@ app.use("/api/transfers", transferRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/chat", chatRoutes);
 
 // ============================================
 // Serve frontend build in production

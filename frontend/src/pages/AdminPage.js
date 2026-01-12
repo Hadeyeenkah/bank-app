@@ -20,6 +20,10 @@ function AdminPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [adminMessage, setAdminMessage] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [conversationMessages, setConversationMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
   const [newTransaction, setNewTransaction] = useState({
     description: '',
     amount: '',
@@ -86,14 +90,76 @@ function AdminPage() {
     }
   };
 
+  // Fetch conversations
+  const fetchConversations = async () => {
+    try {
+      const res = await fetch(`${apiBase}/admin/conversations`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data.conversations || []);
+      }
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+    }
+  };
+
+  // Fetch messages for a conversation
+  const fetchConversationMessages = async (convId) => {
+    try {
+      const res = await fetch(`${apiBase}/chat/messages/${convId}`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConversationMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  };
+
+  // Send chat message
+  const handleSendChatMessage = async () => {
+    if (!chatInput.trim() || !selectedConversationId) return;
+
+    try {
+      const res = await fetch(`${apiBase}/chat/messages`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: selectedConversationId,
+          message: chatInput,
+        }),
+      });
+
+      if (res.ok) {
+        setChatInput('');
+        await fetchConversationMessages(selectedConversationId);
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+    }
+  };
+
   useEffect(() => {
     // Fetch immediately
     fetchAdminData();
+    fetchConversations();
 
     // Set up interval for real-time updates (every 5 seconds)
-    const interval = setInterval(fetchAdminData, 5000);
+    const interval = setInterval(() => {
+      fetchAdminData();
+      fetchConversations();
+      if (selectedConversationId) {
+        fetchConversationMessages(selectedConversationId);
+      }
+    }, 5000);
 
     return () => clearInterval(interval);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -385,6 +451,18 @@ function AdminPage() {
             Transaction Management
           </button>
           <button
+            onClick={() => {
+              setActiveTab('chat');
+              if (conversations.length > 0 && !selectedConversationId) {
+                setSelectedConversationId(conversations[0]._id);
+                fetchConversationMessages(conversations[0]._id);
+              }
+            }}
+            className={`pb-3 text-sm font-semibold transition ${activeTab === 'chat' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
+          >
+            User Chat ({conversations.length})
+          </button>
+          <button
             onClick={() => setActiveTab('messages')}
             className={`pb-3 text-sm font-semibold transition ${activeTab === 'messages' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-slate-400 hover:text-white'}`}
           >
@@ -665,6 +743,107 @@ function AdminPage() {
                       </button>
                     </div>
                   ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User Chat Tab */}
+        {activeTab === 'chat' && (
+          <div className="rounded-2xl border border-white/5 bg-white/5 p-6">
+            <h2 className="mb-6 text-xl font-semibold text-white">User Chat Support</h2>
+            <div className="grid grid-cols-3 gap-6 h-[600px]">
+              {/* Conversations List */}
+              <div className="col-span-1 space-y-2 overflow-y-auto">
+                <h3 className="text-sm font-semibold text-slate-300 mb-3">Active Conversations ({conversations.length})</h3>
+                {conversations.length === 0 ? (
+                  <p className="text-sm text-slate-400">No conversations yet</p>
+                ) : (
+                  conversations.map((conv) => (
+                    <button
+                      key={conv._id}
+                      onClick={() => {
+                        setSelectedConversationId(conv._id);
+                        fetchConversationMessages(conv._id);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-lg transition ${
+                        selectedConversationId === conv._id
+                          ? 'bg-cyan-500/20 border border-cyan-500/50'
+                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <p className="font-semibold text-white text-sm">{conv.userName}</p>
+                      <p className="text-xs text-slate-400 mt-1">{conv.userEmail}</p>
+                      {conv.lastMessage && (
+                        <p className="text-xs text-slate-500 mt-1 truncate">{conv.lastMessage}</p>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Chat Messages */}
+              <div className="col-span-2 border border-white/10 rounded-lg bg-slate-800/50 flex flex-col">
+                {!selectedConversationId ? (
+                  <div className="flex-1 flex items-center justify-center text-slate-400">
+                    <p>Select a conversation to view messages</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {conversationMessages.length === 0 ? (
+                        <p className="text-center text-slate-400 py-8">No messages yet</p>
+                      ) : (
+                        conversationMessages.map((msg, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex ${msg.senderRole === 'admin' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-xs px-4 py-2 rounded-lg text-sm ${
+                                msg.senderRole === 'admin'
+                                  ? 'bg-cyan-500 text-white'
+                                  : 'bg-slate-700 text-slate-100'
+                              }`}
+                            >
+                              <div className="text-xs font-semibold mb-1 opacity-70">
+                                {msg.senderName}
+                              </div>
+                              {msg.message}
+                              <div className="text-xs mt-1 opacity-70">
+                                {new Date(msg.createdAt).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Chat Input */}
+                    <div className="border-t border-slate-700 p-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                          placeholder="Type a message..."
+                          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400"
+                        />
+                        <button
+                          onClick={handleSendChatMessage}
+                          disabled={!chatInput.trim()}
+                          className="rounded-lg bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 px-4 py-2 text-white font-semibold transition"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

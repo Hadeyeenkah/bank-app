@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, requireRole } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const { ChatConversation } = require('../models/Chat');
 
 // Get all users
 router.get('/users', protect, requireRole('admin'), async (req, res) => {
@@ -385,6 +386,19 @@ router.patch('/users/:userId/messages/:messageId/read', protect, async (req, res
   } catch (error) {
     console.error('Mark as read error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all conversations for admin
+router.get('/conversations', protect, requireRole('admin'), async (req, res) => {
+  try {
+    const conversations = await ChatConversation.find()
+      .sort({ lastMessageTime: -1, createdAt: -1 });
+    
+    res.json({ success: true, conversations });
+  } catch (error) {
+    console.error('Get conversations error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

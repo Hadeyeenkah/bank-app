@@ -20,11 +20,12 @@ exports.setAuthCookies = (res, { accessToken, refreshToken }) => {
 	const isProd = process.env.NODE_ENV === 'production';
 
 	// In development (localhost), use sameSite: 'lax' and secure: false
-	// In production, use sameSite: 'none' and secure: true for cross-origin requests
+	// In production on same-origin (Render), use sameSite: 'lax' and secure: true
+	// Only use sameSite: 'none' if explicitly cross-origin (different domains)
 	const cookieOptions = {
 		httpOnly: true,
 		secure: isProd, // Only secure in production
-		sameSite: isProd ? 'none' : 'lax', // 'lax' for dev (localhost), 'none' for prod
+		sameSite: 'lax', // Use 'lax' for same-origin in production
 		path: '/',
 	};
 

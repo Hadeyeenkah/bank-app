@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useBankContext } from './context/BankContext';
 import AuroraBankLogo from './components/AuroraBankLogo';
+import SupportChatWidget from './components/SupportChatWidget';
 import './App.css';
 
 function Dashboard() {
@@ -1178,6 +1179,9 @@ function Dashboard() {
           </button>
         )}
       </div>
+
+      {/* Support Chat Widget */}
+      <SupportChatWidget />
     </div>
   );
 }
