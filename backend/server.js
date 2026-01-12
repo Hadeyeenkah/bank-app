@@ -38,21 +38,29 @@ const defaultDevOrigins = [
   'http://127.0.0.1:5173',
 ];
 
+// Add production origins
+const productionOrigins = [
+  'https://aurorabank.onrender.com',
+];
+
 const envOrigins = (process.env.CLIENT_ORIGIN || process.env.CLIENT_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
 
-const allowedOrigins = Array.from(new Set([...defaultDevOrigins, ...envOrigins]));
+const allowedOrigins = Array.from(new Set([...defaultDevOrigins, ...productionOrigins, ...envOrigins]));
 
 const isLocalOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+// Check if origin matches Render deployment pattern
+const isRenderOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin);
 
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, curl, same-origin)
     if (!origin) return callback(null, true);
 
-    if (isLocalOrigin(origin) || allowedOrigins.includes(origin)) {
+    if (isLocalOrigin(origin) || isRenderOrigin(origin) || allowedOrigins.includes(origin)) {
       console.log('✅ CORS allowed origin:', origin);
       return callback(null, true);
     }
