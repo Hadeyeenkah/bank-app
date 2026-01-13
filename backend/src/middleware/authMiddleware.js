@@ -48,7 +48,7 @@ exports.protect = (req, res, next) => {
 				res.cookie('accessToken', newAccessToken, {
 					httpOnly: true,
 					secure: isProd,
-					sameSite: 'lax',
+					sameSite: isProd ? 'strict' : 'lax',
 					maxAge: 15 * 60 * 1000,
 					path: '/',
 				});

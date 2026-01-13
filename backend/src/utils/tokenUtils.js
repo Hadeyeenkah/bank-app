@@ -19,15 +19,22 @@ exports.generateTokens = (userId) => {
 exports.setAuthCookies = (res, { accessToken, refreshToken }) => {
 	const isProd = process.env.NODE_ENV === 'production';
 
-	// For dev on localhost (different ports), lax usually works; switch to none if needed for strict browsers.
+	// For same-origin on Render (frontend and backend on same domain), use 'strict' or 'lax'
+	// For localhost dev (different ports), use 'lax'
 	const cookieOptions = {
 		httpOnly: true,
-		secure: isProd, // Only secure in production
-		sameSite: isProd ? 'lax' : 'lax',
+		secure: isProd, // HTTPS only in production
+		sameSite: isProd ? 'strict' : 'lax', // strict for same-origin production, lax for dev
 		path: '/',
+		domain: isProd ? undefined : undefined, // Let browser set domain automatically
 	};
 
-	console.log('🍪 Setting auth cookies with options:', { ...cookieOptions, nodeEnv: process.env.NODE_ENV });
+	console.log('🍪 Setting auth cookies with options:', { 
+		...cookieOptions, 
+		nodeEnv: process.env.NODE_ENV,
+		isProd,
+		requestHost: res.req?.get('host')
+	});
 
 	res.cookie('accessToken', accessToken, {
 		...cookieOptions,

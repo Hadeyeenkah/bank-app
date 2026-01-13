@@ -234,7 +234,7 @@ exports.refreshToken = async (req, res) => {
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax', // Same-origin cookies
+      sameSite: isProd ? 'strict' : 'lax',
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
@@ -252,7 +252,7 @@ exports.logout = async (_req, res) => {
     const cookieOptions = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'strict' : 'lax',
       path: '/',
     };
     
