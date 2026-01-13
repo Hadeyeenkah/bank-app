@@ -190,6 +190,8 @@ exports.login = async (req, res) => {
 
     const { accessToken, refreshToken } = generateTokens(user._id || user.id);
     setAuthCookies(res, { accessToken, refreshToken });
+    
+    console.log('🍪 Auth cookies set for user:', user.email);
 
     try {
       await LoginAttempt.create({

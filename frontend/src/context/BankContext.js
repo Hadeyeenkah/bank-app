@@ -57,25 +57,31 @@ export const BankProvider = ({ children }) => {
 
   const fetchProfile = async () => {
     try {
+      console.log('📡 Fetching profile from:', `${apiBase}/auth/profile`);
       const res = await fetch(`${apiBase}/auth/profile`, {
         method: 'GET',
         credentials: 'include',
       });
 
+      console.log('📡 Profile response status:', res.status);
+
       // If not logged in, avoid noisy errors and just return
       if (res.status === 401 || res.status === 403) {
+        console.warn('⚠️  Profile fetch failed with status:', res.status);
         setIsAuthenticated(false);
         setCurrentUser(null);
         return false;
       }
 
       if (!res.ok) {
+        console.error('❌ Profile fetch failed with status:', res.status);
         setIsAuthenticated(false);
         setCurrentUser(null);
         return false;
       }
 
       const data = await res.json();
+      console.log('✅ Profile data received:', { email: data.user?.email });
       
       // Fetch transactions from backend
       let transactions = [];
@@ -121,6 +127,7 @@ export const BankProvider = ({ children }) => {
       setIsAuthenticated(true);
       return true;
     } catch (err) {
+      console.error('❌ Profile fetch error:', err);
       setIsAuthenticated(false);
       setCurrentUser(null);
       return false;
@@ -160,8 +167,15 @@ export const BankProvider = ({ children }) => {
       const data = await res.json();
       console.log('✅ Login successful, fetching profile...');
       
-      await fetchProfile();
-      console.log('✅ Profile fetched, user authenticated');
+      // Add a small delay to ensure cookies are set before fetching profile
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const profileSuccess = await fetchProfile();
+      if (profileSuccess) {
+        console.log('✅ Profile fetched, user authenticated');
+      } else {
+        console.warn('⚠️  Profile fetch returned false, but login succeeded');
+      }
       
       return { success: true, user: data.user };
     } catch (err) {

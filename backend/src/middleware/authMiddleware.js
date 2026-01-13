@@ -4,24 +4,33 @@ exports.protect = (req, res, next) => {
 	try {
 		let token = null;
 
+		// Debug logging
+		console.log('🔐 Auth middleware - cookies:', Object.keys(req.cookies || {}));
+		console.log('🔐 Auth middleware - headers:', req.headers.authorization ? 'Bearer token present' : 'No bearer token');
+
 		// Prefer httpOnly cookie
 		if (req.cookies && req.cookies.accessToken) {
 			token = req.cookies.accessToken;
+			console.log('✅ Using accessToken from cookie');
 		}
 
 		// Fallback to Authorization header
 		if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
 			token = req.headers.authorization.split(' ')[1];
+			console.log('✅ Using token from Authorization header');
 		}
 
 		if (!token) {
+			console.log('❌ No token found in cookies or headers');
 			return res.status(401).json({ message: 'Not authorized' });
 		}
 
 		const decoded = jwt.verify(token, process.env.JWT_SECRET);
+		console.log('✅ Token verified for user:', decoded.userId);
 		req.userId = decoded.userId;
 		next();
 	} catch (err) {
+		console.log('❌ Token verification error:', err.name, err.message);
 		// If token is expired, try to refresh it
 		if (err.name === 'TokenExpiredError') {
 			const refreshToken = req.cookies?.refreshToken;
