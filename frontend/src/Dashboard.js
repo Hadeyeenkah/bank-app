@@ -204,15 +204,25 @@ function Dashboard() {
     const fetchAdminMessages = async () => {
       try {
         const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
-        const res = await fetch(`${apiBase}/admin/users/${currentUser._id}/messages`, {
+        console.log('🔍 Fetching admin messages for user:', currentUser.id);
+        console.log('🔍 API Base:', apiBase);
+        
+        const res = await fetch(`${apiBase}/admin/users/${currentUser.id}/messages`, {
           credentials: 'include',
         });
+        
+        console.log('📡 Response status:', res.status);
+        
         if (res.ok) {
           const data = await res.json();
+          console.log('✅ Admin messages received:', data.messages?.length || 0);
           setAdminMessages(data.messages || []);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          console.error('❌ Failed to fetch admin messages:', res.status, errorData);
         }
       } catch (err) {
-        console.error('Failed to fetch admin messages:', err);
+        console.error('❌ Error fetching admin messages:', err);
       }
     };
 

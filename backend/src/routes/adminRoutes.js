@@ -310,12 +310,15 @@ router.post('/users/:userId/messages', protect, requireRole('admin'), async (req
     const { userId } = req.params;
     const { message } = req.body;
 
+    console.log('📨 Admin sending message:', { userId, message: message?.substring(0, 50), adminId: req.userId });
+
     if (!message || message.trim().length === 0) {
       return res.status(400).json({ message: 'Message cannot be empty' });
     }
 
     const user = await User.findById(userId);
     if (!user) {
+      console.error('❌ User not found:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -328,6 +331,7 @@ router.post('/users/:userId/messages', protect, requireRole('admin'), async (req
     });
 
     await user.save();
+    console.log('✅ Message saved successfully to user:', userId);
 
     res.status(201).json({
       message: 'Message sent successfully',
@@ -339,7 +343,7 @@ router.post('/users/:userId/messages', protect, requireRole('admin'), async (req
       },
     });
   } catch (error) {
-    console.error('Send message error:', error);
+    console.error('❌ Send message error:', error);
     res.status(500).json({ message: 'Server error sending message' });
   }
 });
@@ -348,17 +352,22 @@ router.post('/users/:userId/messages', protect, requireRole('admin'), async (req
 router.get('/users/:userId/messages', protect, async (req, res) => {
   try {
     const { userId } = req.params;
+    console.log('📬 User fetching messages. userId:', userId, 'requestUser:', req.userId);
 
     const user = await User.findById(userId).select('messages');
     if (!user) {
+      console.error('❌ User not found:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const sortedMessages = user.messages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    console.log('✅ Found messages for user:', sortedMessages.length);
+    
     res.json({
-      messages: user.messages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+      messages: sortedMessages,
     });
   } catch (error) {
-    console.error('Get messages error:', error);
+    console.error('❌ Get messages error:', error);
     res.status(500).json({ message: 'Server error fetching messages' });
   }
 });
