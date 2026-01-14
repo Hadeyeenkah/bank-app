@@ -8,15 +8,19 @@ const router = express.Router();
 // Get or create conversation for current user
 router.get('/conversation', protect, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.userId;
     const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
     let conversation = await ChatConversation.findOne({ userId });
 
     if (!conversation) {
       conversation = new ChatConversation({
         userId,
-        userName: user.firstName + ' ' + user.lastName,
+        userName: `${user.firstName} ${user.lastName}`.trim(),
         userEmail: user.email,
         status: 'active',
       });
@@ -48,14 +52,16 @@ router.get('/messages/:conversationId', protect, async (req, res) => {
 router.post('/messages', protect, async (req, res) => {
   try {
     const { conversationId, message } = req.body;
-    const userId = req.user._id;
+    const userId = req.userId;
     const user = await User.findById(userId);
+
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const newMessage = new ChatMessage({
       conversationId,
       senderId: userId,
       senderRole: user.role === 'admin' ? 'admin' : 'user',
-      senderName: user.firstName + ' ' + user.lastName,
+      senderName: `${user.firstName} ${user.lastName}`.trim(),
       message,
     });
 

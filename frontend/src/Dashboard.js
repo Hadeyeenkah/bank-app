@@ -59,50 +59,39 @@ function Dashboard() {
   const [showAccountNumber, setShowAccountNumber] = useState(false);
   const [showRoutingNumber, setShowRoutingNumber] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, sender: 'bot', text: 'Hello! 👋 How can we help you today?' }
-  ]);
-  const [chatInput, setChatInput] = useState('');
 
-  const handleChatSend = () => {
-    if (!chatInput.trim()) return;
-    const userMessage = { id: chatMessages.length + 1, sender: 'user', text: chatInput };
-    setChatMessages([...chatMessages, userMessage]);
-    setChatInput('');
-    setTimeout(() => {
-      let botResponse = '';
-      const input = chatInput.toLowerCase();
-      if (input.includes('balance') || input.includes('how much')) {
-        botResponse = `Your current balance is $${currentUser?.balance?.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Is there anything else I can help you with?`;
-      } else if (input.includes('transfer')) {
-        botResponse = 'You can make a transfer by clicking the "Transfer Money" option in the main menu. Would you like me to guide you through it?';
-      } else if (input.includes('bill')) {
-        botResponse = 'Need to pay a bill? Head to the "Pay Bills" section to manage your bills. Let me know if you need help!';
-      } else if (input.includes('account number') || input.includes('routing')) {
-        botResponse = 'You can find your account and routing number on your dashboard in the Account Details section. Is there anything else?';
-      } else if (input.includes('security') || input.includes('password')) {
-        botResponse = 'For security questions, visit the Security section in your settings. Always keep your password safe!';
-      } else if (input.includes('hello') || input.includes('hi')) {
-        botResponse = 'Hi there! How can I assist you with your Aurora Bank account today? 😊';
-      } else if (input.includes('thank')) {
-        botResponse = "You're welcome! Is there anything else I can help you with?";
-      } else {
-        botResponse = "I'm here to help! You can ask me about your balance, transfers, bills, account details, or security settings. What would you like to know?";
+
+  const handleToggleNotifications = async () => {
+    setShowNotifications((prev) => !prev);
+    // If opening the dropdown, mark unread as read locally and on server for admin messages
+    if (!showNotifications && unreadCount > 0) {
+      // Mark all locally as read for instant UX
+      setNotifications((existing) => existing.map((n) => ({ ...n, read: true })));
+
+      try {
+        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        // For admin-sourced notifications, call API to mark as read
+        const unreadAdmin = adminMessages.filter((m) => !m.read && m._id);
+        await Promise.all(
+          unreadAdmin.map((m) =>
+            fetch(`${apiBase}/admin/users/${currentUser.id}/messages/${m._id}/read`, {
+              method: 'PATCH',
+              credentials: 'include',
+            })
+          )
+        );
+        // Refresh admin messages after marking
+        const res = await fetch(`${apiBase}/admin/users/${currentUser.id}/messages`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAdminMessages(data.messages || []);
+        }
+      } catch (err) {
+        console.error('Failed to mark admin messages as read:', err);
       }
-      setChatMessages(prev => [...prev, { id: chatMessages.length + 2, sender: 'bot', text: botResponse }]);
-    }, 500);
-  };
-
-
-  const handleToggleNotifications = () => {
-    setShowNotifications((prev) => {
-      const next = !prev;
-      if (!prev && unreadCount > 0) {
-        setNotifications((existing) => existing.map((n) => ({ ...n, read: true })));
-      }
-      return next;
-    });
+    }
   };
 
   // Keep form data in sync with latest user profile
@@ -123,16 +112,19 @@ function Dashboard() {
 
     const realNotifications = [];
 
-    // Add admin messages first (high priority)
+    // Add admin messages to notifications (all messages go to bell)
     if (adminMessages && adminMessages.length > 0) {
-      adminMessages.slice(0, 5).forEach((msg) => {
+      adminMessages.forEach((msg) => {
         realNotifications.push({
-          id: `admin-${msg.createdAt}`,
+          id: `admin-${msg._id || msg.createdAt}`,
           title: msg.message,
           detail: 'Message from Aurora Bank',
           time: new Date(msg.createdAt).toISOString(),
           read: msg.read || false,
           icon: '📢',
+          source: 'admin',
+          messageId: msg._id,
+          type: 'admin',
         });
       });
     }
@@ -162,6 +154,7 @@ function Dashboard() {
           time: new Date(tx.date).toISOString(),
           read: false,
           icon: icon,
+          type: 'transaction',
         });
       });
     }
@@ -176,6 +169,7 @@ function Dashboard() {
           time: new Date(tx.date || Date.now()).toISOString(),
           read: false,
           icon: '⏱',
+          type: 'transaction',
         });
       });
     }
@@ -222,13 +216,13 @@ function Dashboard() {
       }
     };
 
-    if (currentUser?._id) {
+    if (currentUser?.id) {
       fetchAdminMessages();
       // Poll for new admin messages every 5 seconds
       const interval = setInterval(fetchAdminMessages, 5000);
       return () => clearInterval(interval);
     }
-  }, [currentUser?._id]);
+  }, [currentUser?.id]);
 
   if (!currentUser) {
     return (
@@ -415,7 +409,17 @@ function Dashboard() {
                       <div className="p-4 text-sm text-slate-400">No new notifications</div>
                     )}
                     {notifications.map((n) => (
-                      <div key={n.id} className="p-4 hover:bg-white/5 transition">
+                      <div
+                        key={n.id}
+                        className="p-4 hover:bg-white/5 transition cursor-pointer"
+                        onClick={() => {
+                          setShowNotifications(false);
+                          const targetFilter = n.source === 'admin' ? 'admin' : (n.type || 'all');
+                          navigate('/notifications', {
+                            state: { filter: targetFilter, showOnlyId: n.id, messageId: n.messageId }
+                          });
+                        }}
+                      >
                         <div className="text-sm font-semibold text-white">{n.title}</div>
                         <div className="text-xs text-slate-400 mt-1">{n.detail}</div>
                         <div className="text-[11px] text-slate-500 mt-1">{formatTime(n.time)}</div>
@@ -527,37 +531,36 @@ function Dashboard() {
           <p className="mt-2 text-slate-300">Here's what's happening with your accounts today.</p>
         </div>
 
-        {/* Admin Messages Alert */}
-        {adminMessages.length > 0 && (
-          <div className="mb-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
-            <div className="flex items-start gap-4">
-              <div className="mt-1 text-2xl">📢</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-300">Messages from Aurora Bank</h3>
-                <div className="mt-3 space-y-2">
-                  {adminMessages.slice(0, 3).map((msg, idx) => (
-                    <div key={idx} className="text-sm text-blue-100">
-                      <p className="mb-1">{msg.message}</p>
-                      <p className="text-xs text-blue-300/70">
-                        {new Date(msg.createdAt).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                {adminMessages.length > 3 && (
-                  <p className="mt-2 text-xs text-blue-300">
-                    +{adminMessages.length - 3} more message{adminMessages.length - 3 !== 1 ? 's' : ''}
+        {/* Admin Messages - Slim Container (shows latest message only) */}
+        {adminMessages.length > 0 && adminMessages.filter(m => !m.read).length > 0 && (() => {
+          const latestUnread = adminMessages.filter(m => !m.read).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+          const unreadCount = adminMessages.filter(m => !m.read).length;
+          return (
+            <div className="mb-6 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span className="text-xl flex-shrink-0">📢</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-cyan-200 truncate">
+                    {latestUnread.message}
                   </p>
-                )}
+                  {unreadCount > 1 && (
+                    <p className="text-xs text-cyan-300/70 mt-0.5">
+                      +{unreadCount - 1} more message{unreadCount - 1 !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
               </div>
+              <button
+                onClick={() => navigate('/notifications', { state: { filter: 'admin' } })}
+                className="text-sm font-medium text-cyan-300 hover:text-cyan-200 whitespace-nowrap flex-shrink-0"
+              >
+                View →
+              </button>
             </div>
-          </div>
-        )}
+          );
+        })()}
+
+        {/* Admin Messages Alert removed: message content not shown on dashboard */}
 
         {/* Account Balance Cards */}
         <div className="mb-8 grid gap-6 md:grid-cols-3">
@@ -698,6 +701,8 @@ function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* Messages Section removed: message content not shown on dashboard */}
 
         {/* Recent Transactions */}
         <div className="mb-8">
@@ -1109,76 +1114,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Chatbot Widget */}
-      <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 flex justify-end">
-        {chatOpen ? (
-          <div className="w-full max-w-md sm:w-96 h-[70vh] sm:h-[600px] bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl border border-cyan-500/30 flex flex-col overflow-hidden">
-            {/* Chat Header */}
-            <div className="bg-gradient-to-r from-cyan-600 to-cyan-500 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg">💬</div>
-                <div>
-                  <p className="font-semibold text-white">Aurora Support</p>
-                  <p className="text-xs text-cyan-100">Always here to help</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setChatOpen(false)}
-                className="text-white hover:bg-white/20 rounded-lg p-2 transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {chatMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs px-4 py-3 rounded-2xl ${
-                      msg.sender === 'user'
-                        ? 'bg-cyan-600 text-white rounded-br-none'
-                        : 'bg-white/10 text-slate-100 rounded-bl-none border border-white/20'
-                    }`}
-                  >
-                    <p className="text-sm">{msg.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Chat Input */}
-            <div className="border-t border-white/10 p-4 flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleChatSend()}
-                placeholder="Type your question..."
-                className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
-              />
-              <button
-                onClick={handleChatSend}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition font-medium text-sm"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setChatOpen(true)}
-            className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-600 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition flex items-center justify-center text-2xl border border-cyan-400/50"
-            title="Open chat"
-          >
-            💬
-          </button>
-        )}
-      </div>
 
       {/* Support Chat Widget */}
       <SupportChatWidget />

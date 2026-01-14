@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useBankContext } from '../context/BankContext';
 import './Page.css';
 
 function NotificationsPage() {
   const { currentUser } = useBankContext();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, unread, transactions, security, account
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [filter, setFilter] = useState('all'); // all, unread, transactions, security, account, admin
+  const [onlyId, setOnlyId] = useState(null);
+  const [onlyMessageId, setOnlyMessageId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [preferences, setPreferences] = useState({
     transactions: true,
@@ -15,11 +20,61 @@ function NotificationsPage() {
     marketing: false,
   });
 
+  // Fetch admin messages for the user
+  useEffect(() => {
+    const fetchAdminMessages = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        const res = await fetch(`${apiBase}/admin/users/${currentUser.id}/messages`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAdminMessages(data.messages || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch admin messages:', err);
+      }
+    };
+
+    fetchAdminMessages();
+    const interval = setInterval(fetchAdminMessages, 10000);
+    return () => clearInterval(interval);
+  }, [currentUser?.id]);
+
+  // Apply intent from Dashboard bell clicks
+  useEffect(() => {
+    if (location.state) {
+      if (location.state.filter) setFilter(location.state.filter);
+      if (location.state.showOnlyId) setOnlyId(location.state.showOnlyId);
+      if (location.state.messageId) setOnlyMessageId(location.state.messageId);
+      navigate('/notifications', { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   // Generate real notifications from user's actual account activity
   useEffect(() => {
     if (!currentUser) return;
 
     const realNotifications = [];
+
+    // Admin messages at top
+    if (adminMessages && adminMessages.length > 0) {
+      adminMessages.forEach((msg) => {
+        realNotifications.push({
+          id: `admin-${msg._id || msg.createdAt}`,
+          type: 'admin',
+          title: msg.message,
+          detail: 'Message from Aurora Bank',
+          time: new Date(msg.createdAt).toISOString(),
+          read: msg.read || false,
+          icon: '📢',
+          messageId: msg._id,
+        });
+      });
+    }
 
     // Transactions - show actual transaction history
     if (currentUser.transactions && currentUser.transactions.length > 0) {
@@ -94,7 +149,7 @@ function NotificationsPage() {
     realNotifications.sort((a, b) => new Date(b.time) - new Date(a.time));
     
     setNotifications(realNotifications);
-  }, [currentUser]);
+  }, [currentUser, adminMessages]);
 
   // Real-time notification polling - fetch new activity every 30 seconds
   useEffect(() => {
@@ -127,24 +182,75 @@ function NotificationsPage() {
   };
 
   // Filter notifications
-  const filteredNotifications = notifications.filter((n) => {
+  let filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread') return !n.read;
     if (filter === 'transactions') return n.type === 'transaction';
     if (filter === 'security') return n.type === 'security';
     if (filter === 'account') return n.type === 'account';
+    if (filter === 'admin') return n.type === 'admin';
     return true;
   });
 
+  // If arrived from bell click with a specific item, show only that
+  if (onlyId) {
+    filteredNotifications = filteredNotifications.filter((n) => n.id === onlyId);
+  } else if (onlyMessageId) {
+    filteredNotifications = filteredNotifications.filter((n) => n.messageId === onlyMessageId);
+  }
+
   // Mark as read
-  const markAsRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  const markAsRead = async (id) => {
+    const notif = notifications.find((n) => n.id === id);
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    // If this is an admin message, mark it as read on server
+    if (notif && notif.type === 'admin' && notif.messageId && currentUser?.id) {
+      try {
+        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        await fetch(`${apiBase}/admin/users/${currentUser.id}/messages/${notif.messageId}/read`, {
+          method: 'PATCH',
+          credentials: 'include',
+        });
+        // Refresh admin messages
+        const res = await fetch(`${apiBase}/admin/users/${currentUser.id}/messages`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAdminMessages(data.messages || []);
+        }
+      } catch (err) {
+        console.error('Failed to mark message read:', err);
+      }
+    }
   };
 
   // Mark all as read
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    // Also mark all unread admin messages as read server-side
+    try {
+      if (!currentUser?.id) return;
+      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+      const unreadAdmin = adminMessages.filter((m) => !m.read && m._id);
+      await Promise.all(
+        unreadAdmin.map((m) =>
+          fetch(`${apiBase}/admin/users/${currentUser.id}/messages/${m._id}/read`, {
+            method: 'PATCH',
+            credentials: 'include',
+          })
+        )
+      );
+      // Refresh
+      const res = await fetch(`${apiBase}/admin/users/${currentUser.id}/messages`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error('Failed to mark all admin messages read:', err);
+    }
   };
 
   // Delete notification
@@ -223,12 +329,13 @@ function NotificationsPage() {
         {/* Filter Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex gap-1.5 flex-wrap">
-            {[
+              {[
               { key: 'all', label: 'All', count: notifications.length },
               { key: 'unread', label: 'Unread', count: unreadCount },
               { key: 'transactions', label: 'Transactions', count: notifications.filter(n => n.type === 'transaction').length },
               { key: 'security', label: 'Security', count: notifications.filter(n => n.type === 'security').length },
               { key: 'account', label: 'Account', count: notifications.filter(n => n.type === 'account').length },
+              { key: 'admin', label: 'Admin', count: notifications.filter(n => n.type === 'admin').length },
             ].map((tab) => (
               <button
                 key={tab.key}
