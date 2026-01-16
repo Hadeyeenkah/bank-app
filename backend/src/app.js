@@ -51,11 +51,12 @@ const allowedOrigins = Array.from(new Set([...defaultDevOrigins, ...productionOr
 
 const isLocalOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 const isRenderOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin);
+const isNetlifyOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(origin);
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (isLocalOrigin(origin) || isRenderOrigin(origin) || allowedOrigins.includes(origin)) {
+    if (isLocalOrigin(origin) || isRenderOrigin(origin) || isNetlifyOrigin(origin) || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS policy: Origin ${origin} not allowed`));
