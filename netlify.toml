@@ -11,13 +11,15 @@
 [functions]
   directory = "netlify/functions"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
+# API routes must come FIRST, before the catch-all React redirect
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
   force = true
+
+# Catch-all for React Router (must be last)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
