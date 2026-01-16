@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useBankContext } from '../context/BankContext';
 import '../App.css';
 
@@ -35,7 +35,7 @@ function SupportChatWidget() {
   }, [chatOpen, currentUser, apiBase]);
 
   // Fetch messages
-  const fetchMessages = async (convId) => {
+  const fetchMessages = useCallback(async (convId) => {
     try {
       const res = await fetch(`${apiBase}/chat/messages/${convId}`, {
         credentials: 'include',
@@ -53,7 +53,7 @@ function SupportChatWidget() {
     } catch (err) {
       console.error('Error fetching messages:', err);
     }
-  };
+  }, [apiBase]);
 
   // Auto-scroll to bottom
   useEffect(() => {
