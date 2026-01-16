@@ -12,28 +12,6 @@ function SupportChatWidget() {
   const messagesEndRef = useRef(null);
   const apiBase = process.env.REACT_APP_API_BASE || '/api';
 
-  // Initialize conversation
-  useEffect(() => {
-    const initializeChat = async () => {
-      try {
-        const res = await fetch(`${apiBase}/chat/conversation`, {
-          credentials: 'include',
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setConversationId(data.conversation._id);
-          fetchMessages(data.conversation._id);
-        }
-      } catch (err) {
-        console.error('Error initializing chat:', err);
-      }
-    };
-
-    if (currentUser && chatOpen) {
-      initializeChat();
-    }
-  }, [chatOpen, currentUser, apiBase]);
-
   // Fetch messages
   const fetchMessages = useCallback(async (convId) => {
     try {
@@ -54,6 +32,28 @@ function SupportChatWidget() {
       console.error('Error fetching messages:', err);
     }
   }, [apiBase]);
+
+  // Initialize conversation
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        const res = await fetch(`${apiBase}/chat/conversation`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setConversationId(data.conversation._id);
+          fetchMessages(data.conversation._id);
+        }
+      } catch (err) {
+        console.error('Error initializing chat:', err);
+      }
+    };
+
+    if (currentUser && chatOpen) {
+      initializeChat();
+    }
+  }, [chatOpen, currentUser, apiBase, fetchMessages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
