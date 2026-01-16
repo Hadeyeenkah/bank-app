@@ -29,7 +29,7 @@
    ```
    NODE_ENV=production
    PORT=10000
-   MONGODB_URI=mongodb+srv://securebank:Aa123123Aa$@securebnk.0am4siz.mongodb.net/securebank?retryWrites=true&w=majority&appName=securebnk
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/securebank
    JWT_SECRET=your_super_secret_jwt_key_min_32_characters_long_change_in_production
    JWT_REFRESH_SECRET=your_refresh_token_secret_min_32_characters_long
    ENCRYPTION_KEY=your_32_character_encryption_key_here_exactly_32_chars

@@ -19,7 +19,7 @@ REACT_APP_API_BASE = https://YOUR-BACKEND-URL.onrender.com/api
 ### 3️⃣ Set Backend Environment Variable
 Go to Render → Backend Service → Environment → Add:
 ```
-CLIENT_ORIGIN = https://aurora-bank.onrender.com
+CLIENT_ORIGIN = https://your-netlify-domain.netlify.app
 ```
 
 **Both services will auto-redeploy. Wait 2-5 minutes, then test!**
@@ -35,7 +35,7 @@ REACT_APP_API_BASE=https://aurora-bank-api.onrender.com/api
 
 **Backend Environment Variables:**
 ```
-CLIENT_ORIGIN=https://aurora-bank.onrender.com
+CLIENT_ORIGIN=https://your-netlify-domain.netlify.app
 ```
 
 Or for multiple origins (local + production):

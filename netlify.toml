@@ -3,9 +3,9 @@
   command = "npm ci && npm ci --prefix frontend && npm run build --prefix frontend"
   publish = "frontend/build"
 
-# Exclude node_modules from secret scanning (false positives in package documentation)
+# Exclude node_modules and markdown docs from secret scanning (false positives)
 [build.environment]
-  SECRETS_SCAN_OMIT_PATHS = "frontend/node_modules/**,backend/node_modules/**"
+  SECRETS_SCAN_OMIT_PATHS = "frontend/node_modules/**,backend/node_modules/**,*.md"
 
 [functions]
   directory = "netlify/functions"
