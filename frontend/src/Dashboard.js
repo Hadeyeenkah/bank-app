@@ -178,7 +178,7 @@ function Dashboard() {
     realNotifications.sort((a, b) => new Date(b.time) - new Date(a.time));
     
     setNotifications(realNotifications.slice(0, 15)); // Keep top 15
-  }, [currentUser?.transactions, currentUser?.pendingTransactions, adminMessages]);
+  }, [currentUser, currentUser?.transactions, currentUser?.pendingTransactions, adminMessages]);
 
   // Handle flash notification coming from navigation state (e.g., transfer success)
   useEffect(() => {
@@ -232,7 +232,7 @@ function Dashboard() {
       const interval = setInterval(fetchAdminMessages, 5000);
       return () => clearInterval(interval);
     }
-  }, [currentUser?.id]);
+  }, [currentUser]);
 
   if (!currentUser) {
     return (

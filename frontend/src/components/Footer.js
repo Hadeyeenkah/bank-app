@@ -29,10 +29,10 @@ function Footer() {
           <div>
             <h3 className="mb-3 text-sm font-semibold text-white">Legal</h3>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li><a href="#" className="hover:text-cyan-300">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-cyan-300">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-cyan-300">Online Security Guarantee</a></li>
-              <li><a href="#" className="hover:text-cyan-300">Accessibility</a></li>
+              <li><Link to="/privacy" className="hover:text-cyan-300">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-cyan-300">Terms of Service</Link></li>
+              <li><Link to="/security" className="hover:text-cyan-300">Online Security Guarantee</Link></li>
+              <li><Link to="/accessibility" className="hover:text-cyan-300">Accessibility</Link></li>
             </ul>
           </div>
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const BankContext = createContext();
 
@@ -55,7 +55,7 @@ export const BankProvider = ({ children }) => {
   // Backend: helper to call API with cookies
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       console.log('📡 Fetching profile from:', `${apiBase}/auth/profile`);
       const res = await fetch(`${apiBase}/auth/profile`, {
@@ -132,7 +132,7 @@ export const BankProvider = ({ children }) => {
       setCurrentUser(null);
       return false;
     }
-  };
+  }, [apiBase]);
 
   // Initialize auth on mount - check if user has an active session
   useEffect(() => {
@@ -142,7 +142,7 @@ export const BankProvider = ({ children }) => {
       setIsInitializing(false);
     };
     initializeAuth();
-  }, []);
+  }, [fetchProfile]);
 
   // Login function via backend
   const login = async (email, password) => {

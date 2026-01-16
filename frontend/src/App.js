@@ -265,7 +265,7 @@ function HomePage() {
               <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">Products</p>
               <h2 className="mt-2 text-3xl font-semibold text-white">Banking built to flex</h2>
             </div>
-            <a className="text-sm text-cyan-200 hover:text-cyan-100" href="#">See all</a>
+            <a className="text-sm text-cyan-200 hover:text-cyan-100" href="/#products">See all</a>
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {products.map((product, index) => {

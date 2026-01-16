@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useBankContext } from '../context/BankContext';
 import './Page.css';
@@ -198,6 +198,9 @@ function SecurityPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">Security Center</p>
             <h1 className="text-3xl font-semibold text-white">Protect your account</h1>
             <p className="text-slate-300 mt-2">Manage authentication, alerts, and trusted devices.</p>
+            {currentUser?.email && (
+              <p className="text-sm text-slate-400 mt-1">Signed in as {currentUser.email}</p>
+            )}
           </div>
           <Link to="/dashboard" className="text-cyan-300 hover:text-cyan-100 text-sm">← Back to dashboard</Link>
         </header>
