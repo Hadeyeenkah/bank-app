@@ -1,0 +1,22 @@
+[build]
+  # Install backend and frontend deps, build frontend
+  command = "npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend"
+  publish = "frontend/build"
+
+# Exclude node_modules from secret scanning (false positives in package documentation)
+[build.environment]
+  SECRETS_SCAN_OMIT_PATHS = "frontend/node_modules/**,backend/node_modules/**"
+
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server/:splat"
+  status = 200
+  force = true
