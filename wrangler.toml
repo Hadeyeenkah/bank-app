@@ -1,0 +1,20 @@
+name = "bank-app-api"
+main = "workers/api.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "bank-app-api-prod"
+
+# Environment variables (non-secret)
+[vars]
+NODE_ENV = "production"
+
+# Secrets are set via CLI:
+# wrangler secret put MONGODB_URI
+# wrangler secret put JWT_SECRET
+# wrangler secret put JWT_REFRESH_SECRET
+
+# Serve static frontend assets from the React build output
+[assets]
+directory = "frontend/build"
