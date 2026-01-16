@@ -53,7 +53,7 @@ export const BankProvider = ({ children }) => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
 
   // Backend: helper to call API with cookies
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const apiBase = process.env.REACT_APP_API_BASE || '/api';
 
   const fetchProfile = useCallback(async () => {
     try {

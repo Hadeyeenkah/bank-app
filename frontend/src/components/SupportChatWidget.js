@@ -10,7 +10,7 @@ function SupportChatWidget() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(null);
   const messagesEndRef = useRef(null);
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const apiBase = process.env.REACT_APP_API_BASE || '/api';
 
   // Initialize conversation
   useEffect(() => {

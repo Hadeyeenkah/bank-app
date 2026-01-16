@@ -69,7 +69,7 @@ function Dashboard() {
       setNotifications((existing) => existing.map((n) => ({ ...n, read: true })));
 
       try {
-        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        const apiBase = process.env.REACT_APP_API_BASE || '/api';
         // For admin-sourced notifications, call API to mark as read
         const unreadAdmin = adminMessages.filter((m) => !m.read && m._id);
         await Promise.all(
@@ -203,7 +203,7 @@ function Dashboard() {
   useEffect(() => {
     const fetchAdminMessages = async () => {
       try {
-        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        const apiBase = process.env.REACT_APP_API_BASE || '/api';
         console.log('🔍 Fetching admin messages for user:', currentUser.id);
         console.log('🔍 API Base:', apiBase);
         

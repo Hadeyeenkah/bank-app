@@ -26,7 +26,7 @@ function BillsPage() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   const billCategories = ['Utilities', 'Internet', 'Phone', 'Rent', 'Insurance', 'Credit Card', 'Other'];
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const apiBase = process.env.REACT_APP_API_BASE || '/api';
 
   // Redirect if not authenticated
   useEffect(() => {

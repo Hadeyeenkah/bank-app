@@ -7,7 +7,7 @@ import '../App.css';
 function TransferPage() {
   const { currentUser, transferMoney } = useBankContext();
   const navigate = useNavigate();
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const apiBase = process.env.REACT_APP_API_BASE || '/api';
   const AURORA_ROUTING = '026009593';
   const [formData, setFormData] = useState({
     transferType: 'external',

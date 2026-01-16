@@ -40,7 +40,7 @@ function AdminPage() {
     date: new Date().toISOString().split('T')[0],
   });
 
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const apiBase = process.env.REACT_APP_API_BASE || '/api';
 
   // Fetch admin data in real-time
   const fetchAdminData = async () => {

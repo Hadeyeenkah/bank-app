@@ -5,7 +5,7 @@ import './Page.css';
 
 function SecurityPage() {
   const { currentUser } = useBankContext();
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+  const apiBase = process.env.REACT_APP_API_BASE || '/api';
   
   // State management
   const [show2FAModal, setShow2FAModal] = useState(false);

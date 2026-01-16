@@ -25,7 +25,7 @@ function NotificationsPage() {
     const fetchAdminMessages = async () => {
       if (!currentUser?.id) return;
       try {
-        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        const apiBase = process.env.REACT_APP_API_BASE || '/api';
         const res = await fetch(`${apiBase}/admin/users/${currentUser.id}/messages`, {
           credentials: 'include',
         });
@@ -205,7 +205,7 @@ function NotificationsPage() {
     // If this is an admin message, mark it as read on server
     if (notif && notif.type === 'admin' && notif.messageId && currentUser?.id) {
       try {
-        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+        const apiBase = process.env.REACT_APP_API_BASE || '/api';
         await fetch(`${apiBase}/admin/users/${currentUser.id}/messages/${notif.messageId}/read`, {
           method: 'PATCH',
           credentials: 'include',
@@ -230,7 +230,7 @@ function NotificationsPage() {
     // Also mark all unread admin messages as read server-side
     try {
       if (!currentUser?.id) return;
-      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
+      const apiBase = process.env.REACT_APP_API_BASE || '/api';
       const unreadAdmin = adminMessages.filter((m) => !m.read && m._id);
       await Promise.all(
         unreadAdmin.map((m) =>
