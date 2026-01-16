@@ -69,7 +69,7 @@ function SupportChatWidget() {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [conversationId, chatOpen, apiBase]);
+  }, [conversationId, chatOpen, apiBase, fetchMessages]);
 
   // Send message
   const handleSendMessage = async (e) => {

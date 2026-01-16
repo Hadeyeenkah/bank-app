@@ -47,7 +47,7 @@ function SecurityPage() {
   ]);
   
   // Session history
-  const [sessions, setSessions] = useState([
+  const [sessions] = useState([
     { id: 1, timestamp: '2025-12-29 10:30 AM', action: 'Login', device: 'Chrome on Linux', ip: '192.168.1.100', status: 'success' },
     { id: 2, timestamp: '2025-12-28 03:15 PM', action: 'Password change', device: 'Chrome on Linux', ip: '192.168.1.100', status: 'success' },
     { id: 3, timestamp: '2025-12-27 09:45 AM', action: 'Login', device: 'Safari on iPhone', ip: '10.0.0.50', status: 'success' },
