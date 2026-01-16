@@ -1,6 +1,6 @@
 [build]
-  # Install backend and frontend deps, build frontend
-  command = "npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend"
+  # Install dependencies and build frontend only
+  command = "npm ci --prefix frontend && npm run build --prefix frontend"
   publish = "frontend/build"
 
 # Exclude node_modules from secret scanning (false positives in package documentation)
