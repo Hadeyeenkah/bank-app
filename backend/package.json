@@ -1,8 +1,8 @@
 {
-  "name": "securebank-backend",
+  "name": "aurora-bank-backend",
   "version": "1.0.0",
-  "description": "SecureBank API - Professional Banking Application Backend",
-  "main": "vercel-handler.js",
+  "description": "Aurora Bank Backend API",
+  "main": "server.js",
   "exports": "./src/app.js",
   "scripts": {
     "start": "node server.js",
