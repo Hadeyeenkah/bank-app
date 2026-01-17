@@ -135,10 +135,15 @@ app.use((err, req, res, next) => {
 });
 
 // Connect DB for serverless / function invocations
+// SECURITY: Only seed demo users in development mode
 (async () => {
   try {
     const connected = await connectDB();
-    if (connected && process.env.DEMO_SEED === 'true') {
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const shouldSeedDemo = isDevelopment && process.env.DEMO_SEED === 'true';
+    
+    if (connected && shouldSeedDemo) {
+      console.warn('⚠️  DEMO MODE: Seeding demo users (development only)');
       await seedDemoUsers();
     }
     if (connected) console.log('🗄️  Database connected (app.js)');

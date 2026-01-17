@@ -185,14 +185,26 @@ Add a `_routes.json` in your Pages project to proxy `/api/*` to your Worker.
 
 ---
 
-### 8️⃣ MongoDB Atlas Network Access
+### 8️⃣ MongoDB Atlas Network Access (SECURE METHOD)
 
-Allow Cloudflare Workers to connect:
+Allow Cloudflare Workers to connect safely:
 
-1. Go to MongoDB Atlas → **Network Access**
-2. **Add IP Address** → **Allow Access from Anywhere** (0.0.0.0/0)
-   - Workers use dynamic IPs, so you need to allow all
-   - Use strong passwords and firewall rules
+**Option A: IP Whitelist (Recommended for security)**
+1. Go to MongoDB Atlas → **Network Access** → **Add IP Address**
+2. Find Cloudflare's IP ranges at: https://www.cloudflare.com/ips/
+3. Add Cloudflare IP ranges (constantly updated)
+4. Enable **IP Whitelist Auto-Update** if available
+
+**Option B: Use MongoDB App Services (App Access)**
+1. Go to **App Services** → Create API Key authentication
+2. Use API Key instead of IP whitelist
+3. More secure for Workers environments
+
+**⚠️ NEVER use 0.0.0.0/0 (allows anyone to connect)**
+- Violates hosting terms of service (security/liability)
+- Opens your database to unauthorized access
+- Could result in account suspension
+- Use strong passwords + IP whitelist instead
 
 ---
 

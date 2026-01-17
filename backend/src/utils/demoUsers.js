@@ -1,11 +1,15 @@
-// Lightweight demo users for environments without MongoDB.
-// Enabled via env var DEMO_MODE=true. Intended for non-persistent demos only.
+// ⚠️ DEPRECATED - Demo users should NOT be used in production
+// This file is for LOCAL development only
+// In production: Set DEMO_SEED=false (DEFAULT) and use real MongoDB only
+
+// Lightweight demo users for local testing without MongoDB
+// Enabled via env var DEMO_SEED=true. MUST be false in production.
 
 const demoUsers = [
   {
     id: 'demo:admin@aurorabank.com',
     email: 'admin@aurorabank.com',
-    password: 'Admin123!',
+    password: 'Admin123!_DEV_ONLY',
     firstName: 'Admin',
     lastName: 'User',
     role: 'admin',
@@ -21,7 +25,7 @@ const demoUsers = [
   {
     id: 'demo:lornamartins@gmail.com',
     email: 'lornamartins@gmail.com',
-    password: 'password123',
+    password: 'password123_DEV_ONLY',
     firstName: 'Lorna',
     lastName: 'Martins',
     role: 'user',
