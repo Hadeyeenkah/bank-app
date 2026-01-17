@@ -1,8 +1,10 @@
 {
-  "buildCommand": "cd frontend && npm install && CI=false npm run build",
+  "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && npm install",
+  "framework": null,
   "env": {
-    "NODE_OPTIONS": "--max-old-space-size=4096 --no-deprecation"
-  },
-  "installCommand": "cd frontend && npm install && npm install patch-package postinstall-postinstall && npx patch-package"
+    "CI": "false",
+    "GENERATE_SOURCEMAP": "false"
+  }
 }
