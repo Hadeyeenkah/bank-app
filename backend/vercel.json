@@ -6,15 +6,12 @@
       "use": "@vercel/node",
       "config": {
         "nodeVersion": "18.x",
-        "includeFiles": ["src/**"]
+        "includeFiles": ["src/**"],
+        "excludeFiles": ["*.test.js", "node_modules/**"]
       }
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.js"
-    },
     {
       "src": "/(.*)",
       "dest": "/api/index.js"
@@ -22,5 +19,6 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "buildCommand": "npm install"
 }
