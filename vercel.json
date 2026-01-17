@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/build",
+  "env": {
+    "NODE_OPTIONS": "--no-deprecation"
+  },
+  "installCommand": "cd frontend && npm install && npm install patch-package postinstall-postinstall && npx patch-package"
+}
