@@ -113,22 +113,10 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/chat", chatRoutes);
 
-// Serve frontend build in production when running as a standalone server
-if (process.env.NODE_ENV === 'production') {
-  const path = require('path');
-  const frontendBuildPath = path.join(__dirname, '../../frontend/build');
-  app.use(express.static(frontendBuildPath));
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ status: 'error', message: 'API route not found' });
-    }
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
-  });
-} else {
-  app.use((req, res) => {
-    res.status(404).json({ status: 'error', message: 'Route not found' });
-  });
-}
+// 404 handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({ status: 'error', message: 'Route not found' });
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
