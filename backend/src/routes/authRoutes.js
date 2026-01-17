@@ -6,7 +6,39 @@ const User = require('../models/User');
 const authController = require('../controllers/authController');
 
 const jwt = require('jsonwebtoken');
-const { requireRole } = require('../middleware/authMiddleware');
+// Remove unused import and define protect middleware here
+
+const protect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({ 
+        status: 'error', 
+        message: 'Access token required' 
+      });
+    }
+
+    // Verify token
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    // Get user from token
+    req.user = await User.findById(verified.userId).select('-password');
+    if (!req.user) {
+      return res.status(401).json({ 
+        status: 'error', 
+        message: 'User not found' 
+      });
+    }
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(403).json({ 
+      status: 'error', 
+      message: 'Invalid or expired token' 
+    });
+  }
+};
 
 // Middleware to support JWT in Authorization header (for Vercel/frontend)
 const authenticateToken = (req, res, next) => {
@@ -70,15 +102,23 @@ router.get('/verify-email', authController.verifyEmail);
 router.post('/login', loginValidation, handleValidationErrors, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', protect, authController.logout);
-router.get('/profile', authenticateToken, async (req, res) => {
+router.get('/profile', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    return res.json({ user });
-  } catch (err) {
-    return res.status(500).json({ error: 'Server error' });
+    res.json({
+      status: 'success',
+      user: {
+        id: req.user._id,
+        email: req.user.email,
+        name: req.user.name || `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+        // Add other fields as needed
+      }
+    });
+  } catch (error) {
+    console.error('Profile error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message 
+    });
   }
 });
 router.put('/profile', protect, authController.updateProfile);
