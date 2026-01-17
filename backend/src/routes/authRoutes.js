@@ -2,6 +2,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
+const User = require('../models/User');
 const authController = require('../controllers/authController');
 
 const jwt = require('jsonwebtoken');
@@ -11,10 +12,11 @@ const { requireRole } = require('../middleware/authMiddleware');
 const authenticateToken = (req, res, next) => {
   // Try header first
   const authHeader = req.headers['authorization'];
-  let token = authHeader && authHeader.split(' ')[1];
-  // Fallback to cookie if not present
-  if (!token && req.cookies && req.cookies.accessToken) {
-    token = req.cookies.accessToken;
+  let token = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
   }
   if (!token) {
     return res.status(401).json({ status: 'error', message: 'No token provided' });
@@ -68,7 +70,17 @@ router.get('/verify-email', authController.verifyEmail);
 router.post('/login', loginValidation, handleValidationErrors, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', protect, authController.logout);
-router.get('/profile', authenticateToken, authController.getProfile);
+router.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    return res.json({ user });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
 router.put('/profile', protect, authController.updateProfile);
 router.post('/change-password', protect, authController.changePassword);
 

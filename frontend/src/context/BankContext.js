@@ -56,19 +56,26 @@ export const BankProvider = ({ children }) => {
   // Use full backend URL on production to prevent relative path issues
   const getApiBase = () => {
     if (process.env.NODE_ENV === 'production') {
-      return process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+      return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
     }
-    return process.env.REACT_APP_API_BASE || 'http://localhost:5001';
+    const baseUrl = process.env.REACT_APP_API_BASE || 'http://localhost:5001';
+    return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
   };
   
   const apiBase = getApiBase();
 
+
   const fetchProfile = useCallback(async () => {
     try {
-      const profileUrl = `${apiBase}/api/auth/profile`;
+      const profileUrl = `${apiBase}/auth/profile`;
+      const token = localStorage.getItem('authToken');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       console.log('📡 Fetching profile from:', profileUrl);
       const res = await fetch(profileUrl, {
         method: 'GET',
+        headers,
         credentials: 'include',
       });
 
@@ -102,31 +109,9 @@ export const BankProvider = ({ children }) => {
       const data = await res.json();
       console.log('✅ Profile data received:', { email: data.user?.email });
       
-      // Fetch transactions from backend
+      // Don't fetch transactions on login - they'll be fetched when dashboard mounts (lazy load)
       let transactions = [];
       let pendingTransactions = [];
-      try {
-        const txRes = await fetch(`${apiBase}/api/transactions?limit=100`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (txRes.ok) {
-          const txData = await txRes.json();
-          transactions = (txData.transactions || []).map(tx => ({
-            id: tx._id,
-            date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            description: tx.description,
-            amount: tx.amount,
-            category: tx.category,
-            status: tx.status,
-            accountType: tx.accountType,
-            note: tx.note,
-          }));
-          pendingTransactions = transactions.filter(t => t.status === 'pending');
-        }
-      } catch (err) {
-        console.log('Failed to fetch transactions:', err);
-      }
       
       setCurrentUser({
         id: data.user._id || data.user.id,
@@ -167,7 +152,7 @@ export const BankProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       console.log('🔐 Login attempt:', email);
-      const loginUrl = `${apiBase}/api/auth/login`;
+      const loginUrl = `${apiBase}/auth/login`;
       console.log('📡 Calling:', loginUrl);
       
       const res = await fetch(loginUrl, {
@@ -203,18 +188,19 @@ export const BankProvider = ({ children }) => {
       }
       
       const data = await res.json();
+      // Store JWT if present
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        console.log('✅ Token stored:', data.token);
+      }
       console.log('✅ Login successful, fetching profile...');
-      
-      // Add a small delay to ensure cookies are set before fetching profile
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      // Fetch profile immediately (no delay - cookies are already set)
       const profileSuccess = await fetchProfile();
       if (profileSuccess) {
         console.log('✅ Profile fetched, user authenticated');
       } else {
         console.warn('⚠️  Profile fetch returned false, but login succeeded');
       }
-      
       return { success: true, user: data.user };
     } catch (err) {
       console.error('❌ Login error:', err);
@@ -229,7 +215,7 @@ export const BankProvider = ({ children }) => {
       const firstName = nameParts[0] || userData.firstName || '';
       const lastName = nameParts.slice(1).join(' ') || userData.lastName || 'User';
       
-      const res = await fetch(`${apiBase}/api/auth/register`, {
+      const res = await fetch(`${apiBase}/auth/register`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -261,7 +247,7 @@ export const BankProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      await fetch(`${apiBase}/api/auth/logout`, {
+      await fetch(`${apiBase}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -273,7 +259,7 @@ export const BankProvider = ({ children }) => {
   // Update profile
   const updateProfile = async (profileData) => {
     try {
-      const res = await fetch(`${apiBase}/api/auth/profile`, {
+      const res = await fetch(`${apiBase}/auth/profile`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -530,7 +516,7 @@ export const BankProvider = ({ children }) => {
       };
 
       // Save debit transaction to backend
-      const saveDebit = fetch(`${apiBase}/api/transactions`, {
+      const saveDebit = fetch(`${apiBase}/transactions`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -547,7 +533,7 @@ export const BankProvider = ({ children }) => {
       }).catch(err => console.error('Failed to save debit:', err));
 
       // Save credit transaction to backend
-      const saveCredit = fetch(`${apiBase}/api/transactions`, {
+      const saveCredit = fetch(`${apiBase}/transactions`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -629,7 +615,7 @@ export const BankProvider = ({ children }) => {
     };
 
     // Save pending transaction to backend
-    fetch(`${apiBase}/api/transactions`, {
+    fetch(`${apiBase}/transactions`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -644,7 +630,7 @@ export const BankProvider = ({ children }) => {
         note,
         date: today,
       }),
-    }))
+    })
       .then(res => res.json())
       .then(() => {
         // Refresh profile to get updated transactions
@@ -688,7 +674,7 @@ export const BankProvider = ({ children }) => {
   // Pay bill - call backend API
   const payBill = async (userId, billData) => {
     try {
-      const res = await fetch(`${apiBase}/api/bills`, {
+      const res = await fetch(`${apiBase}/bills`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -749,6 +735,17 @@ export const BankProvider = ({ children }) => {
     }
   };
 
+  // Update current user with transactions (for lazy loading)
+  const updateTransactions = (transactions, pendingTransactions) => {
+    if (currentUser) {
+      setCurrentUser(prev => ({
+        ...prev,
+        transactions: transactions || prev.transactions || [],
+        pendingTransactions: pendingTransactions || prev.pendingTransactions || [],
+      }));
+    }
+  };
+
   const value = {
     currentUser,
     isAuthenticated,
@@ -765,6 +762,7 @@ export const BankProvider = ({ children }) => {
     updateUserBalance,
     transferMoney,
     payBill,
+    updateTransactions,
   };
 
   return <BankContext.Provider value={value}>{children}</BankContext.Provider>;

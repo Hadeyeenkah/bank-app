@@ -6,7 +6,7 @@ import SupportChatWidget from './components/SupportChatWidget';
 import './App.css';
 
 function Dashboard() {
-  const { currentUser, logout, updateProfile } = useBankContext();
+  const { currentUser, logout, updateProfile, updateTransactions } = useBankContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -105,6 +105,40 @@ function Dashboard() {
       avatarUrl: currentUser.avatarUrl || '',
     });
   }, [currentUser]);
+
+  // Lazy fetch transactions when dashboard mounts (not during login)
+  useEffect(() => {
+    if (!currentUser || (currentUser.transactions && currentUser.transactions.length > 0)) return;
+    
+    const fetchTransactions = async () => {
+      try {
+        const apiBase = process.env.REACT_APP_API_BASE || '/api';
+        const res = await fetch(`${apiBase}/transactions?limit=100`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const transactions = (data.transactions || []).map(tx => ({
+            id: tx._id,
+            date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            description: tx.description,
+            amount: tx.amount,
+            category: tx.category,
+            status: tx.status,
+            accountType: tx.accountType,
+            note: tx.note,
+          }));
+          // Update context with transactions
+          const pendingTx = transactions.filter(t => t.status === 'pending');
+          updateTransactions(transactions, pendingTx);
+        }
+      } catch (err) {
+        console.log('Failed to lazy load transactions:', err);
+      }
+    };
+    
+    fetchTransactions();
+  }, [currentUser, updateTransactions]); // Only run when user changes
 
   // Generate real notifications from user's actual transactions and admin messages
   useEffect(() => {

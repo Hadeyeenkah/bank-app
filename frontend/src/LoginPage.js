@@ -39,11 +39,17 @@ function LoginPage() {
 
     try {
       // Use full backend URL on production
-      const apiBase = process.env.NODE_ENV === 'production' 
-        ? (process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app')
-        : (process.env.REACT_APP_API_BASE || 'http://localhost:5001');
+      const getApiBase = () => {
+        if (process.env.NODE_ENV === 'production') {
+          const baseUrl = process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+          return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+        }
+        const baseUrl = process.env.REACT_APP_API_BASE || 'http://localhost:5001';
+        return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+      };
+      const apiBase = getApiBase();
       
-      const res = await fetch(`${apiBase}/api/auth/forgot-password`, {
+      const res = await fetch(`${apiBase}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
