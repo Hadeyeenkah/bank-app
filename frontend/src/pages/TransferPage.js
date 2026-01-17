@@ -30,7 +30,6 @@ function TransferPage() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recipientFound, setRecipientFound] = useState(null);
-  
 
   const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
 

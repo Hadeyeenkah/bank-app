@@ -142,7 +142,7 @@ export const BankProvider = ({ children }) => {
       setIsInitializing(false);
     };
     initializeAuth();
-  }, [fetchProfile]);
+  }, [fetchProfile, apiBase]);
 
   // Login function via backend
   const login = async (email, password) => {
