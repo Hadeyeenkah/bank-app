@@ -47,7 +47,6 @@ function SecurityPage() {
   ]);
   
   // Session history
-  // eslint-disable-next-line no-unused-vars
   const [sessions] = useState([
     { id: 1, timestamp: '2025-12-29 10:30 AM', action: 'Login', device: 'Chrome on Linux', ip: '192.168.1.100', status: 'success' },
     { id: 2, timestamp: '2025-12-28 03:15 PM', action: 'Password change', device: 'Chrome on Linux', ip: '192.168.1.100', status: 'success' },
