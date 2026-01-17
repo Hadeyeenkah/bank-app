@@ -43,6 +43,7 @@ const productionOrigins = [
   'https://aurorabank.onrender.com',
   // Vercel deployments (frontend and backend can be on same domain or different)
   'https://aurorabank-6c8448dyx-auroras-projects-c3211c64.vercel.app',
+  'https://aurora-bank-backend.vercel.app',
   'https://*.vercel.app', // Match all Vercel preview/production deployments
 ];
 
