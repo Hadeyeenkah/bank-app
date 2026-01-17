@@ -5,6 +5,11 @@ compatibility_flags = ["nodejs_compat"]
 
 [env.production]
 name = "bank-app-api-prod"
+account_id = "<YOUR_ACCOUNT_ID>"
+
+# Environment variables (non-secret) for production
+[env.production.vars]
+NODE_ENV = "production"
 
 # Environment variables (non-secret)
 [vars]
