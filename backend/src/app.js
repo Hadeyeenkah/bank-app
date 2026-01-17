@@ -105,6 +105,15 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Root API route for Vercel
+app.get("/api", (req, res) => {
+  res.json({
+    status: "success",
+    message: "Aurora Bank Backend API",
+    docs: "https://github.com/your-org/your-repo#readme"
+  });
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
