@@ -6,15 +6,15 @@ const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv");
 dotenv.config();
 
-const { connectDB, isDBConnected } = require("../src/config/database");
-const authRoutes = require("../routes/authRoutes");
-const transactionRoutes = require("../routes/transactionRoutes");
-const billRoutes = require("../routes/billRoutes");
-const notificationRoutes = require("../routes/notificationRoutes");
-const adminRoutes = require("../routes/adminRoutes");
-const transferRoutes = require("../routes/transferRoutes");
-const chatRoutes = require("../routes/chatRoutes");
-const { seedDemoUsers } = require("../utils/seedDemoUsers");
+const { connectDB, isDBConnected } = require("./config/database");
+const authRoutes = require("./routes/authRoutes");
+const transactionRoutes = require("./routes/transactionRoutes");
+const billRoutes = require("./routes/billRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const transferRoutes = require("./routes/transferRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+const { seedDemoUsers } = require("./utils/seedDemoUsers");
 
 const app = express();
 
