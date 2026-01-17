@@ -21,8 +21,3 @@ DEMO_SEED = "false"
 # wrangler secret put MONGODB_URI
 # wrangler secret put JWT_SECRET
 # wrangler secret put JWT_REFRESH_SECRET
-# wrangler secret put JWT_REFRESH_SECRET
-
-# Serve static frontend assets from the React build output
-[assets]
-directory = "frontend/build"
