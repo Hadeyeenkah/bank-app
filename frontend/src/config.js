@@ -1,11 +1,25 @@
 // config.js - API Configuration
 // This file centralizes all API endpoint configuration
 
-export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+// Determine API URL based on environment
+const getApiUrl = () => {
+  // Production: use explicit backend domain
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+  }
+  // Development: allow override or use localhost
+  return process.env.REACT_APP_API_URL || 'http://localhost:5001';
+};
 
-// Log warning in development if using default URL
-if (!process.env.REACT_APP_API_URL && process.env.NODE_ENV === 'development') {
-  console.warn('⚠️ REACT_APP_API_URL not set. Using default:', API_URL);
+export const API_URL = getApiUrl();
+
+// Log configuration in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 API Configuration:', {
+    apiUrl: API_URL,
+    env: process.env.NODE_ENV,
+    reactAppApiUrl: process.env.REACT_APP_API_URL
+  });
 }
 
 // API Endpoints

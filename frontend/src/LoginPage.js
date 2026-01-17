@@ -38,12 +38,25 @@ function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5001/api';
-      const res = await fetch(`${apiBase}/auth/forgot-password`, {
+      // Use full backend URL on production
+      const apiBase = process.env.NODE_ENV === 'production' 
+        ? (process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app')
+        : (process.env.REACT_APP_API_BASE || 'http://localhost:5001');
+      
+      const res = await fetch(`${apiBase}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
       });
+
+      // Check if response is JSON
+      const contentType = res.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await res.text();
+        console.error('❌ Non-JSON response:', text.substring(0, 200));
+        setForgotError('Server error - invalid response');
+        return;
+      }
 
       const data = await res.json();
 
@@ -59,6 +72,7 @@ function LoginPage() {
         setForgotError(data.message || 'Failed to send reset link');
       }
     } catch (err) {
+      console.error('❌ Error:', err);
       setForgotError('Network error. Please try again.');
     } finally {
       setIsSubmitting(false);

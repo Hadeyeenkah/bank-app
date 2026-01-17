@@ -53,12 +53,21 @@ export const BankProvider = ({ children }) => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
 
   // Backend: helper to call API with cookies
-  const apiBase = process.env.REACT_APP_API_BASE || '/api';
+  // Use full backend URL on production to prevent relative path issues
+  const getApiBase = () => {
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+    }
+    return process.env.REACT_APP_API_BASE || 'http://localhost:5001';
+  };
+  
+  const apiBase = getApiBase();
 
   const fetchProfile = useCallback(async () => {
     try {
-      console.log('📡 Fetching profile from:', `${apiBase}/auth/profile`);
-      const res = await fetch(`${apiBase}/auth/profile`, {
+      const profileUrl = `${apiBase}/api/auth/profile`;
+      console.log('📡 Fetching profile from:', profileUrl);
+      const res = await fetch(profileUrl, {
         method: 'GET',
         credentials: 'include',
       });
@@ -80,6 +89,16 @@ export const BankProvider = ({ children }) => {
         return false;
       }
 
+      // Verify response is JSON
+      const contentType = res.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await res.text();
+        console.error('❌ Non-JSON response:', text.substring(0, 200));
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        return false;
+      }
+
       const data = await res.json();
       console.log('✅ Profile data received:', { email: data.user?.email });
       
@@ -87,7 +106,7 @@ export const BankProvider = ({ children }) => {
       let transactions = [];
       let pendingTransactions = [];
       try {
-        const txRes = await fetch(`${apiBase}/transactions?limit=100`, {
+        const txRes = await fetch(`${apiBase}/api/transactions?limit=100`, {
           method: 'GET',
           credentials: 'include',
         });
@@ -148,7 +167,10 @@ export const BankProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       console.log('🔐 Login attempt:', email);
-      const res = await fetch(`${apiBase}/auth/login`, {
+      const loginUrl = `${apiBase}/api/auth/login`;
+      console.log('📡 Calling:', loginUrl);
+      
+      const res = await fetch(loginUrl, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -159,9 +181,25 @@ export const BankProvider = ({ children }) => {
       console.log('🍪 Response headers:', Array.from(res.headers.entries()));
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('❌ Login failed:', errorData);
-        return { success: false, message: errorData.message || 'Login failed' };
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const errorData = await res.json();
+          console.error('❌ Login failed:', errorData);
+          return { success: false, message: errorData.message || `Login failed (${res.status})` };
+        } else {
+          const text = await res.text();
+          console.error('❌ Non-JSON error response:', text.substring(0, 200));
+          return { success: false, message: `Server error: ${res.status} - ${res.statusText}` };
+        }
+      }
+      
+      // Verify response is JSON
+      const contentType = res.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await res.text();
+        console.error('❌ Non-JSON success response:', text.substring(0, 200));
+        return { success: false, message: 'Invalid server response' };
       }
       
       const data = await res.json();
@@ -191,7 +229,7 @@ export const BankProvider = ({ children }) => {
       const firstName = nameParts[0] || userData.firstName || '';
       const lastName = nameParts.slice(1).join(' ') || userData.lastName || 'User';
       
-      const res = await fetch(`${apiBase}/auth/register`, {
+      const res = await fetch(`${apiBase}/api/auth/register`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +261,7 @@ export const BankProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      await fetch(`${apiBase}/auth/logout`, {
+      await fetch(`${apiBase}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -235,7 +273,7 @@ export const BankProvider = ({ children }) => {
   // Update profile
   const updateProfile = async (profileData) => {
     try {
-      const res = await fetch(`${apiBase}/auth/profile`, {
+      const res = await fetch(`${apiBase}/api/auth/profile`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -492,7 +530,7 @@ export const BankProvider = ({ children }) => {
       };
 
       // Save debit transaction to backend
-      const saveDebit = fetch(`${apiBase}/transactions`, {
+      const saveDebit = fetch(`${apiBase}/api/transactions`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -509,7 +547,7 @@ export const BankProvider = ({ children }) => {
       }).catch(err => console.error('Failed to save debit:', err));
 
       // Save credit transaction to backend
-      const saveCredit = fetch(`${apiBase}/transactions`, {
+      const saveCredit = fetch(`${apiBase}/api/transactions`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -591,7 +629,7 @@ export const BankProvider = ({ children }) => {
     };
 
     // Save pending transaction to backend
-    fetch(`${apiBase}/transactions`, {
+    fetch(`${apiBase}/api/transactions`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -606,7 +644,7 @@ export const BankProvider = ({ children }) => {
         note,
         date: today,
       }),
-    })
+    }))
       .then(res => res.json())
       .then(() => {
         // Refresh profile to get updated transactions
@@ -650,7 +688,7 @@ export const BankProvider = ({ children }) => {
   // Pay bill - call backend API
   const payBill = async (userId, billData) => {
     try {
-      const res = await fetch(`${apiBase}/bills`, {
+      const res = await fetch(`${apiBase}/api/bills`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

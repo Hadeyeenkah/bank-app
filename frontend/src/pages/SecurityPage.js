@@ -5,7 +5,10 @@ import './Page.css';
 
 function SecurityPage() {
   const { currentUser } = useBankContext();
-  const apiBase = process.env.REACT_APP_API_BASE || '/api';
+  // Use full backend URL on production to prevent routing to frontend
+  const apiBase = process.env.NODE_ENV === 'production' 
+    ? (process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app')
+    : (process.env.REACT_APP_API_BASE || 'http://localhost:5001');
   
   // State management
   const [show2FAModal, setShow2FAModal] = useState(false);
@@ -58,7 +61,7 @@ function SecurityPage() {
   const handleEnable2FA = async () => {
     try {
       setMfaError('');
-      const res = await fetch(`${apiBase}/auth/enable-2fa`, {
+      const res = await fetch(`${apiBase}/api/auth/enable-2fa`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -89,7 +92,7 @@ function SecurityPage() {
     }
     
     try {
-      const res = await fetch(`${apiBase}/auth/confirm-2fa`, {
+      const res = await fetch(`${apiBase}/api/auth/confirm-2fa`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +148,7 @@ function SecurityPage() {
     }
     
     try {
-      const res = await fetch(`${apiBase}/auth/change-password`, {
+      const res = await fetch(`${apiBase}/api/auth/change-password`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
