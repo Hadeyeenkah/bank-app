@@ -6,5 +6,19 @@
   "env": {
     "CI": "false",
     "GENERATE_SOURCEMAP": "false"
-  }
+  },
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*\\.(svg|png|jpg|jpeg|gif|ico|json|txt|css|js))",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
