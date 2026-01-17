@@ -1,9 +1,21 @@
 // src/routes/authRoutes.js
 const express = require('express');
-const { body } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect, requireRole } = require('../middleware/authMiddleware');
+
+// Validation error handler middleware
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      message: 'Validation failed',
+      errors: errors.array() 
+    });
+  }
+  next();
+};
 
 // Validation rules
 const registerValidation = [
@@ -21,9 +33,9 @@ const loginValidation = [
 ];
 
 // Routes
-router.post('/register', registerValidation, authController.register);
+router.post('/register', registerValidation, handleValidationErrors, authController.register);
 router.get('/verify-email', authController.verifyEmail);
-router.post('/login', loginValidation, authController.login);
+router.post('/login', loginValidation, handleValidationErrors, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', protect, authController.logout);
 router.get('/profile', protect, authController.getProfile);
