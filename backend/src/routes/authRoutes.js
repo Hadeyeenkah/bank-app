@@ -3,7 +3,28 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { protect, requireRole } = require('../middleware/authMiddleware');
+
+const jwt = require('jsonwebtoken');
+const { requireRole } = require('../middleware/authMiddleware');
+
+// Middleware to support JWT in Authorization header (for Vercel/frontend)
+const authenticateToken = (req, res, next) => {
+  // Try header first
+  const authHeader = req.headers['authorization'];
+  let token = authHeader && authHeader.split(' ')[1];
+  // Fallback to cookie if not present
+  if (!token && req.cookies && req.cookies.accessToken) {
+    token = req.cookies.accessToken;
+  }
+  if (!token) {
+    return res.status(401).json({ status: 'error', message: 'No token provided' });
+  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ status: 'error', message: 'Invalid or expired token' });
+    req.user = user;
+    next();
+  });
+};
 
 // Handle GET request (for browser testing)
 router.get('/login', (req, res) => {
@@ -47,7 +68,7 @@ router.get('/verify-email', authController.verifyEmail);
 router.post('/login', loginValidation, handleValidationErrors, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', protect, authController.logout);
-router.get('/profile', protect, authController.getProfile);
+router.get('/profile', authenticateToken, authController.getProfile);
 router.put('/profile', protect, authController.updateProfile);
 router.post('/change-password', protect, authController.changePassword);
 
