@@ -19,5 +19,14 @@ app.get('/', (req, res) => {
   });
 });
 
+// Quick test route for /auth/login
+app.post('/auth/login', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'Login route working!',
+    body: req.body
+  });
+});
+
 // Export Express app for Vercel (@vercel/node)
 module.exports = app;
