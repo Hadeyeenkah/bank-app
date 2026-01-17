@@ -103,24 +103,5 @@ app.onError((err, c) => {
     message: err.message || 'Internal server error',
   }, 500)
 })
-})
-
-// Placeholder for other routes
-app.get('/api/transactions', (c) => {
-  return c.json({ message: 'Transactions endpoint - connect MongoDB here' })
-})
-
-app.get('/api/transfers', (c) => {
-  return c.json({ message: 'Transfers endpoint - connect MongoDB here' })
-})
-
-app.get('/api/bills', (c) => {
-  return c.json({ message: 'Bills endpoint - connect MongoDB here' })
-})
-
-// 404 handler
-app.all('*', (c) => {
-  return c.json({ error: 'Not found' }, 404)
-})
 
 export default app
