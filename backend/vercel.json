@@ -2,23 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "nodeVersion": "24.x",
-        "includeFiles": ["src/**"],
-        "excludeFiles": ["*.test.js", "node_modules/**"]
-      }
+      "src": "vercel-handler.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/api/index.js"
+      "dest": "vercel-handler.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "buildCommand": "npm install"
+  ]
 }
