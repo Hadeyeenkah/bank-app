@@ -1,6 +1,7 @@
 // api/index.js - Vercel serverless entry point
-// Updated: Force fresh deploy with fixed paths
-const app = require("../src/app");
+// Using absolute paths for reliable module resolution
+const path = require("path");
+const app = require(path.join(__dirname, "..", "src", "app"));
 
 // Export for Vercel serverless
 module.exports = app;

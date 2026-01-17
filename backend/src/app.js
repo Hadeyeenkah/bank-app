@@ -4,17 +4,18 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv");
+const path = require("path");
 dotenv.config();
 
-const { connectDB, isDBConnected } = require("./config/database");
-const authRoutes = require("./routes/authRoutes");
-const transactionRoutes = require("./routes/transactionRoutes");
-const billRoutes = require("./routes/billRoutes");
-const notificationRoutes = require("./routes/notificationRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const transferRoutes = require("./routes/transferRoutes");
-const chatRoutes = require("./routes/chatRoutes");
-const { seedDemoUsers } = require("./utils/seedDemoUsers");
+const { connectDB, isDBConnected } = require(path.join(__dirname, "config", "database"));
+const authRoutes = require(path.join(__dirname, "routes", "authRoutes"));
+const transactionRoutes = require(path.join(__dirname, "routes", "transactionRoutes"));
+const billRoutes = require(path.join(__dirname, "routes", "billRoutes"));
+const notificationRoutes = require(path.join(__dirname, "routes", "notificationRoutes"));
+const adminRoutes = require(path.join(__dirname, "routes", "adminRoutes"));
+const transferRoutes = require(path.join(__dirname, "routes", "transferRoutes"));
+const chatRoutes = require(path.join(__dirname, "routes", "chatRoutes"));
+const { seedDemoUsers } = require(path.join(__dirname, "utils", "seedDemoUsers"));
 
 const app = express();
 
