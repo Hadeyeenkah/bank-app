@@ -5,6 +5,15 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect, requireRole } = require('../middleware/authMiddleware');
 
+// Handle GET request (for browser testing)
+router.get('/login', (req, res) => {
+  res.json({
+    status: 'error',
+    message: 'Please use POST method for login',
+    hint: 'Send email and password in request body'
+  });
+});
+
 // Validation error handler middleware
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
