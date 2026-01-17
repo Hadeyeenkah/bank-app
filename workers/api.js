@@ -3,105 +3,53 @@ import { cors } from 'hono/cors'
 
 const app = new Hono()
 
-// CORS middleware - dynamic origin based on environment
+// CORS configuration
 app.use('*', cors({
   origin: (origin) => {
     if (!origin) return true
-    
-    // Allow Cloudflare Pages domains
-    if (origin.includes('.pages.dev')) return origin
-    
-    // Allow localhost for local development
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) return origin
-    
-    // Production domain (set via env var)
-    const allowedDomain = import.meta.env.FRONTEND_URL
-    if (allowedDomain && origin === allowedDomain) return origin
-    
+    if (origin.includes('.pages.dev') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return origin
+    }
     return false
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
 }))
 
-// Health check
+// Health Check
 app.get('/api/health', (c) => {
   return c.json({
     status: 'success',
     message: 'Bank API running on Cloudflare Workers',
     timestamp: new Date().toISOString(),
-    environment: c.env.NODE_ENV || 'production',
   })
 })
 
-// Authentication Routes
+// Authentication
 app.post('/api/auth/login', async (c) => {
   try {
-    const { email, password } = await c.req.json()
-    
-    if (!email || !password) {
-      return c.json({ status: 'error', message: 'Email and password required' }, 400)
-    }
-    
-    // TODO: Connect to MongoDB and verify credentials
-    // For now, return placeholder
-    return c.json({
-      status: 'error',
-      message: 'MongoDB connection required - configure MONGODB_URI secret',
-    }, 503)
-  } catch (error) {
-    return c.json({ status: 'error', message: error.message }, 400)
+    const body = await c.req.json()
+    return c.json({ error: 'Configure MongoDB connection' }, 503)
+  } catch (e) {
+    return c.json({ error: e.message }, 400)
   }
 })
 
 app.post('/api/auth/signup', async (c) => {
   try {
     const body = await c.req.json()
-    
-    if (!body.email || !body.password) {
-      return c.json({ status: 'error', message: 'Email and password required' }, 400)
-    }
-    
-    // TODO: Connect to MongoDB and create user
-    return c.json({
-      status: 'error',
-      message: 'MongoDB connection required - configure MONGODB_URI secret',
-    }, 503)
-  } catch (error) {
-    return c.json({ status: 'error', message: error.message }, 400)
+    return c.json({ error: 'Configure MongoDB connection' }, 503)
+  } catch (e) {
+    return c.json({ error: e.message }, 400)
   }
 })
 
 app.post('/api/auth/logout', (c) => {
-  return c.json({ status: 'success', message: 'Logged out' })
+  return c.json({ status: 'success' })
 })
 
-app.post('/api/auth/refresh', (c) => {
-  return c.json({ status: 'error', message: 'Token refresh endpoint - implement with JWT' }, 501)
-})
-
-// Transactions Routes (placeholder)
-app.get('/api/transactions', (c) => {
-  return c.json({ status: 'error', message: 'MongoDB connection required' }, 503)
-})
-
-app.post('/api/transactions', async (c) => {
-  return c.json({ status: 'error', message: 'MongoDB connection required' }, 503)
-})
-
-// 404 Handler
+// Default 404
 app.all('*', (c) => {
-  return c.json({ status: 'error', message: 'Route not found' }, 404)
-})
-
-// Error handler
-app.onError((err, c) => {
-  console.error('API Error:', err)
-  return c.json({
-    status: 'error',
-    message: err.message || 'Internal server error',
-  }, 500)
+  return c.json({ error: 'Not found' }, 404)
 })
 
 export default app
