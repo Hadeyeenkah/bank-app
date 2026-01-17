@@ -40,6 +40,9 @@ const defaultDevOrigins = [
 
 const productionOrigins = [
   'https://aurorabank.onrender.com',
+  // Vercel deployments (frontend and backend can be on same domain or different)
+  'https://aurorabank-6c8448dyx-auroras-projects-c3211c64.vercel.app',
+  'https://*.vercel.app', // Match all Vercel preview/production deployments
 ];
 
 const envOrigins = (process.env.CLIENT_ORIGIN || process.env.CLIENT_ORIGINS || '')
@@ -53,11 +56,12 @@ const isLocalOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d
 const isRenderOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin);
 const isNetlifyOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(origin);
 const isFirebaseOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.(web\.app|firebaseapp\.com)$/i.test(origin);
+const isVercelOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (isLocalOrigin(origin) || isRenderOrigin(origin) || isNetlifyOrigin(origin) || isFirebaseOrigin(origin) || allowedOrigins.includes(origin)) {
+    if (isLocalOrigin(origin) || isRenderOrigin(origin) || isNetlifyOrigin(origin) || isFirebaseOrigin(origin) || isVercelOrigin(origin) || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS policy: Origin ${origin} not allowed`));
