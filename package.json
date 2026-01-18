@@ -10,7 +10,9 @@
     "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
     "server:dev": "cd backend && npm run dev",
     "build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
-    "heroku-postbuild": "npm run build"
+    "heroku-postbuild": "npm run build",
+    "build": "cd frontend && npm install && npm run build",
+    "vercel-build": "cd frontend && npm install && npm run build"
   {
     "name": "bank-app",
     "version": "1.0.0",
@@ -19,12 +21,5 @@
       "vercel-build": "cd frontend && npm install && npm run build"
     }
   }
-  "license": "ISC",
-  "devDependencies": {
-    "concurrently": "^8.2.1"
-  },
-  "dependencies": {
-    "hono": "^4.11.4",
-    "serverless-http": "^3.2.0"
   }
 }
