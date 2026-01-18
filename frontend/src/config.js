@@ -8,7 +8,8 @@ const getApiUrl = () => {
     return process.env.REACT_APP_API_URL || '';
   }
   // Development: allow override or use localhost
-  return process.env.REACT_APP_API_URL || 'http://localhost:5001';
+  // Default to relative `/api` so CRA dev server can proxy requests to backend
+  return process.env.REACT_APP_API_URL || '/api';
 };
 
 export const API_URL = getApiUrl();

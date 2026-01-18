@@ -1,0 +1,10 @@
+nohup: ignoring input
+[dotenv@17.2.3] injecting env (13) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+🗄️  MongoDB URI (sanitized): mongodb+srv://****:****@securebnk.0am4siz.mongodb.net/securebank
+🚀 Server running on port 5001
+📍 Environment: development
+✅ MongoDB connected (attempt 1/5)
+⚠️  DEMO MODE: Seeding demo users (development only)
+✅ Demo users seeded to MongoDB
+🗄️  Database connected (app.js)
+👋 SIGTERM received, shutting down gracefully

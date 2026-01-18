@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import API_URL from '../config';
 
 const BankContext = createContext();
 
@@ -15,6 +16,8 @@ export const BankProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  // Network/backend availability
+  const [_backendError, setBackendError] = useState(null);
   
   // All users data
   const [users, setUsers] = useState([
@@ -53,17 +56,57 @@ export const BankProvider = ({ children }) => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
 
   // Backend: helper to call API with cookies
-  // Use full backend URL on production to prevent relative path issues
+  // Start with configured API URL (from frontend/src/config.js) or env override
   const getApiBase = () => {
-    if (process.env.NODE_ENV === 'production') {
-      const baseUrl = process.env.REACT_APP_API_URL || '';
-      return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
-    }
-    const baseUrl = process.env.REACT_APP_API_BASE || 'http://localhost:5001';
-    return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+    const envBase = process.env.REACT_APP_API_BASE || API_URL || '/api';
+    return envBase.endsWith('/api') ? envBase : `${envBase.replace(/\/+$/, '')}/api`;
   };
-  
-  const apiBase = getApiBase();
+
+  const [apiBase, setApiBase] = useState(getApiBase());
+
+  // Try to detect a reachable backend and fall back to relative `/api` if unreachable.
+  const tryResolveApiBase = useCallback(async () => {
+    const candidates = [getApiBase(), '/api'];
+    const timeoutMs = 1500;
+
+    const tryFetch = async (url) => {
+      try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        const res = await fetch(url, { method: 'GET', mode: 'cors', signal: controller.signal });
+        clearTimeout(id);
+        return res;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    for (const candidate of candidates) {
+      // normalize candidate to ensure it doesn't double `/api`
+      const normalized = candidate.endsWith('/api') ? candidate : `${candidate.replace(/\/+$/, '')}/api`;
+      // try common health endpoints
+      const healthUrls = [
+        `${normalized}/health`,
+        `${normalized}/auth/health`,
+        `${normalized}`,
+      ];
+      for (const u of healthUrls) {
+        const r = await tryFetch(u);
+        if (r && (r.ok || r.status === 404 || r.status === 401)) {
+          // 404 or 401 still indicates host reachable (server responded)
+          setApiBase(normalized);
+          setBackendError(null);
+          console.log('🔍 Resolved API base to', normalized);
+          return;
+        }
+      }
+    }
+
+    // Nothing reachable: fall back to relative proxy and set backend error
+    setApiBase('/api');
+    setBackendError('Backend unreachable. Using relative `/api` proxy. Start backend or set REACT_APP_API_BASE.');
+    console.warn('⚠️  Backend not reachable at configured hosts; using /api fallback');
+  }, []);
 
 
   const fetchProfile = useCallback(async () => {
@@ -78,6 +121,8 @@ export const BankProvider = ({ children }) => {
         headers,
         credentials: 'include',
       });
+      // Clear previous backend error on successful network connection
+      setBackendError(null);
 
       console.log('📡 Profile response status:', res.status);
 
@@ -132,6 +177,12 @@ export const BankProvider = ({ children }) => {
       return true;
     } catch (err) {
       console.error('❌ Profile fetch error:', err);
+      // If network failure, set backendError so UI can inform user
+      if (err instanceof TypeError) {
+        setBackendError('Unable to contact backend server. Please ensure the backend is running on the configured host (usually http://localhost:5001).');
+      } else {
+        setBackendError(String(err));
+      }
       setIsAuthenticated(false);
       setCurrentUser(null);
       return false;
@@ -142,11 +193,13 @@ export const BankProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       setIsInitializing(true);
+      // Resolve API base before attempting profile fetch
+      await tryResolveApiBase();
       await fetchProfile();
       setIsInitializing(false);
     };
     initializeAuth();
-  }, [fetchProfile, apiBase]);
+  }, [fetchProfile, tryResolveApiBase]);
 
   // Login function via backend
   const login = async (email, password) => {
@@ -161,6 +214,8 @@ export const BankProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      // Clear previous backend error when we get a network response
+      setBackendError(null);
       
       console.log('📡 Login response status:', res.status);
       console.log('🍪 Response headers:', Array.from(res.headers.entries()));
@@ -204,6 +259,11 @@ export const BankProvider = ({ children }) => {
       return { success: true, user: data.user };
     } catch (err) {
       console.error('❌ Login error:', err);
+      if (err instanceof TypeError) {
+        setBackendError('Unable to contact backend server. Please ensure the backend is running on the configured host (usually http://localhost:5001).');
+        return { success: false, message: 'Network error: cannot reach backend server.' };
+      }
+      setBackendError(String(err));
       return { success: false, message: 'Network error. Please try again.' };
     }
   };
