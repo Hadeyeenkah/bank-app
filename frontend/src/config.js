@@ -3,9 +3,9 @@
 
 // Determine API URL based on environment
 const getApiUrl = () => {
-  // Production: use explicit backend domain
+  // For Vercel monorepo: use relative path in production
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+    return process.env.REACT_APP_API_URL || '';
   }
   // Development: allow override or use localhost
   return process.env.REACT_APP_API_URL || 'http://localhost:5001';

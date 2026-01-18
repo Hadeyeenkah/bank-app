@@ -56,7 +56,7 @@ export const BankProvider = ({ children }) => {
   // Use full backend URL on production to prevent relative path issues
   const getApiBase = () => {
     if (process.env.NODE_ENV === 'production') {
-      const baseUrl = process.env.REACT_APP_API_URL || 'https://aurora-bank-backend.vercel.app';
+      const baseUrl = process.env.REACT_APP_API_URL || '';
       return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
     }
     const baseUrl = process.env.REACT_APP_API_BASE || 'http://localhost:5001';

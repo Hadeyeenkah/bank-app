@@ -11,14 +11,14 @@
     "server:dev": "cd backend && npm run dev",
     "build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
     "heroku-postbuild": "npm run build"
-  },
-  "keywords": [
-    "banking",
-    "react",
-    "express",
-    "full-stack"
-  ],
-  "author": "",
+  {
+    "name": "bank-app",
+    "version": "1.0.0",
+    "scripts": {
+      "build": "cd frontend && npm install && npm run build",
+      "vercel-build": "cd frontend && npm install && npm run build"
+    }
+  }
   "license": "ISC",
   "devDependencies": {
     "concurrently": "^8.2.1"
