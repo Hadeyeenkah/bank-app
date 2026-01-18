@@ -1,25 +1,8 @@
 {
-  "name": "aurora-bank",
+  "name": "bank-app",
   "version": "1.0.0",
-  "description": "Aurora Bank - Full Stack Banking Application",
-  "main": "server.js",
+  "private": true,
   "scripts": {
-    "start": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd backend && npm start",
-    "client": "cd frontend && npm start",
-    "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
-    "server:dev": "cd backend && npm run dev",
-    "build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
-    "heroku-postbuild": "npm run build",
-    "build": "cd frontend && npm install && npm run build",
-    "vercel-build": "cd frontend && npm install && npm run build"
-  {
-    "name": "bank-app",
-    "version": "1.0.0",
-    "private": true,
-    "scripts": {
-      "build": "cd frontend && npm ci && npm run build"
-    }
-  }
+    "build": "cd frontend && npm ci && npm run build"
   }
 }
