@@ -6,39 +6,8 @@ const User = require('../models/User');
 const authController = require('../controllers/authController');
 
 const jwt = require('jsonwebtoken');
-// Remove unused import and define protect middleware here
 
-const protect = async (req, res, next) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-    if (!token) {
-      return res.status(401).json({ 
-        status: 'error', 
-        message: 'Access token required' 
-      });
-    }
-
-    // Verify token
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    // Get user from token
-    req.user = await User.findById(verified.userId).select('-password');
-    if (!req.user) {
-      return res.status(401).json({ 
-        status: 'error', 
-        message: 'User not found' 
-      });
-    }
-    next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ 
-      status: 'error', 
-      message: 'Invalid or expired token' 
-    });
-  }
-};
+const { protect, requireRole } = require('../middleware/authMiddleware');
 
 // Middleware to support JWT in Authorization header (for Vercel/frontend)
 const authenticateToken = (req, res, next) => {
@@ -109,8 +78,17 @@ router.get('/profile', protect, async (req, res) => {
       user: {
         id: req.user._id,
         email: req.user.email,
-        name: req.user.name || `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
-        // Add other fields as needed
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        phone: req.user.phone,
+        avatarUrl: req.user.avatarUrl,
+        role: req.user.role,
+        accountNumber: req.user.accountNumber,
+        routingNumber: req.user.routingNumber,
+        balance: req.user.balance,
+        accounts: req.user.accounts,
+        isVerified: req.user.isVerified,
+        // Add more fields as needed
       }
     });
   } catch (error) {
@@ -137,8 +115,8 @@ router.post('/confirm-2fa', protect, authController.confirm2FA);
 router.post('/verify-2fa', authController.verify2FA);
 
 // Example: protect an admin-only endpoint (placeholder)
-router.get('/admin-only', protect, requireRole('admin'), (req, res) => {
-  res.json({ message: 'Admin access granted' });
-});
+// router.get('/admin-only', protect, requireRole('admin'), (req, res) => {
+//   res.json({ message: 'Admin access granted' });
+// });
 
 module.exports = router;

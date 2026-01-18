@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-exports.protect = (req, res, next) => {
+const User = require('../models/User');
+exports.protect = async (req, res, next) => {
 	try {
 		let token = null;
 
@@ -27,6 +28,13 @@ exports.protect = (req, res, next) => {
 
 		const decoded = jwt.verify(token, process.env.JWT_SECRET);
 		console.log('✅ Token verified for user:', decoded.userId);
+
+		// Fetch user from DB and attach to req.user
+		const user = await User.findById(decoded.userId);
+		if (!user) {
+			return res.status(401).json({ message: 'User not found' });
+		}
+		req.user = user;
 		req.userId = decoded.userId;
 		next();
 	} catch (err) {
@@ -37,12 +45,10 @@ exports.protect = (req, res, next) => {
 			if (!refreshToken) {
 				return res.status(401).json({ message: 'Session expired. Please log in again.' });
 			}
-			
 			try {
 				const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
 				const { generateTokens, setAuthCookies } = require('../utils/tokenUtils');
 				const { accessToken: newAccessToken } = generateTokens(decoded.userId);
-				
 				// Set new access token cookie using setAuthCookies for consistency
 				const isProd = process.env.NODE_ENV === 'production';
 				res.cookie('accessToken', newAccessToken, {
@@ -52,7 +58,12 @@ exports.protect = (req, res, next) => {
 					maxAge: 15 * 60 * 1000,
 					path: '/',
 				});
-				
+				// Fetch user from DB and attach to req.user
+				const user = await User.findById(decoded.userId);
+				if (!user) {
+					return res.status(401).json({ message: 'User not found' });
+				}
+				req.user = user;
 				req.userId = decoded.userId;
 				next();
 			} catch (refreshErr) {
