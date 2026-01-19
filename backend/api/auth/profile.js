@@ -5,7 +5,7 @@ function setCorsHeaders(res, origin) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const allowedOrigin = process.env.FRONTEND_URL || 'https://your-frontend.vercel.app';
   
   setCorsHeaders(res, allowedOrigin);
