@@ -1,5 +1,9 @@
 nohup: ignoring input
-[dotenv@17.2.3] injecting env (13) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+> bank-app-backend@1.0.0 start
+> node server.js
+
+[dotenv@17.2.3] injecting env (13) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
 🗄️  MongoDB URI (sanitized): mongodb+srv://****:****@securebnk.0am4siz.mongodb.net/securebank
 🚀 Server running on port 5001
 📍 Environment: development
@@ -7,4 +11,117 @@ nohup: ignoring input
 ⚠️  DEMO MODE: Seeding demo users (development only)
 ✅ Demo users seeded to MongoDB
 🗄️  Database connected (app.js)
+ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users. See https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/ for more information.
+    at Object.xForwardedForHeader (/home/hadeyeenkah/bank-app/backend/node_modules/express-rate-limit/dist/index.cjs:366:13)
+    at wrappedValidations.<computed> [as xForwardedForHeader] (/home/hadeyeenkah/bank-app/backend/node_modules/express-rate-limit/dist/index.cjs:680:22)
+    at Object.keyGenerator (/home/hadeyeenkah/bank-app/backend/node_modules/express-rate-limit/dist/index.cjs:783:20)
+    at /home/hadeyeenkah/bank-app/backend/node_modules/express-rate-limit/dist/index.cjs:844:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hadeyeenkah/bank-app/backend/node_modules/express-rate-limit/dist/index.cjs:825:5 {
+  code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/'
+}
+🔐 Auth middleware - cookies: [
+  '_ga',
+  '_ga_8MTTJ3X1D4',
+  'MicrosoftApplicationsTelemetryDeviceId',
+  'MSFPC',
+  'brcap',
+  '_ga_J4GELN0ZD7',
+  'refreshToken'
+]
+🔐 Auth middleware - headers: No bearer token
+❌ No token found in cookies or headers
+🔐 Auth middleware - cookies: [
+  '_ga',
+  '_ga_8MTTJ3X1D4',
+  'MicrosoftApplicationsTelemetryDeviceId',
+  'MSFPC',
+  'brcap',
+  '_ga_J4GELN0ZD7',
+  'refreshToken'
+]
+🔐 Auth middleware - headers: No bearer token
+❌ No token found in cookies or headers
+🔐 Auth middleware - cookies: [
+  '_ga',
+  '_ga_8MTTJ3X1D4',
+  'MicrosoftApplicationsTelemetryDeviceId',
+  'MSFPC',
+  'brcap',
+  '_ga_J4GELN0ZD7',
+  'refreshToken'
+]
+🔐 Auth middleware - headers: Bearer token present
+✅ Using token from Authorization header
+❌ Token verification error: JsonWebTokenError jwt malformed
+🔐 Auth middleware - cookies: [
+  '_ga',
+  '_ga_8MTTJ3X1D4',
+  'MicrosoftApplicationsTelemetryDeviceId',
+  'MSFPC',
+  'brcap',
+  '_ga_J4GELN0ZD7',
+  'refreshToken'
+]
+🔐 Auth middleware - headers: Bearer token present
+✅ Using token from Authorization header
+❌ Token verification error: JsonWebTokenError jwt malformed
+🍪 Setting auth cookies with options: {
+  httpOnly: true,
+  secure: false,
+  sameSite: 'lax',
+  path: '/',
+  domain: undefined,
+  nodeEnv: 'development',
+  isProd: false,
+  requestHost: 'localhost:5001'
+}
+🍪 Auth cookies set for user: lornamartins101@gmail.com
+🔐 Auth middleware - cookies: [
+  '_ga',
+  '_ga_8MTTJ3X1D4',
+  'MicrosoftApplicationsTelemetryDeviceId',
+  'MSFPC',
+  'brcap',
+  '_ga_J4GELN0ZD7',
+  'accessToken',
+  'refreshToken'
+]
+🔐 Auth middleware - headers: Bearer token present
+✅ Using accessToken from cookie
+✅ Token verified for user: 6952fb4342d8e0a6c86dd8a1
+🍪 Setting auth cookies with options: {
+  httpOnly: true,
+  secure: false,
+  sameSite: 'lax',
+  path: '/',
+  domain: undefined,
+  nodeEnv: 'development',
+  isProd: false,
+  requestHost: 'localhost:5001'
+}
+🍪 Auth cookies set for user: lornamartins101@gmail.com
+🍪 Setting auth cookies with options: {
+  httpOnly: true,
+  secure: false,
+  sameSite: 'lax',
+  path: '/',
+  domain: undefined,
+  nodeEnv: 'development',
+  isProd: false,
+  requestHost: 'localhost:5001'
+}
+🍪 Auth cookies set for user: lornamartins101@gmail.com
+🍪 Setting auth cookies with options: {
+  httpOnly: true,
+  secure: false,
+  sameSite: 'lax',
+  path: '/',
+  domain: undefined,
+  nodeEnv: 'development',
+  isProd: false,
+  requestHost: 'localhost:5001'
+}
+🍪 Auth cookies set for user: lornamartins101@gmail.com
 👋 SIGTERM received, shutting down gracefully
