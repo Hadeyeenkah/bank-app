@@ -58,8 +58,10 @@ export const BankProvider = ({ children }) => {
   // Backend: helper to call API with cookies
   // Start with configured API URL (from frontend/src/config.js) or env override
   const getApiBase = () => {
-    const envBase = process.env.REACT_APP_API_BASE || API_URL || '/api';
-    return envBase.endsWith('/api') ? envBase : `${envBase.replace(/\/+$/, '')}/api`;
+    // Prefer explicit environment variables, then centralized config, then a hardcoded production backend
+    const DEFAULT_API = 'https://aurora-wine-pi.vercel.app/api';
+    const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || API_URL || DEFAULT_API || '/api';
+    return envBase.endsWith('/api') ? envBase : `${envBase.replace(/\/\/+$/, '')}/api`;
   };
 
   const [apiBase, setApiBase] = useState(getApiBase());
@@ -111,7 +113,7 @@ export const BankProvider = ({ children }) => {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const profileUrl = `${apiBase}/auth/profile`;
+      const profileUrl = `${apiBase.replace(/\/\/+$/, '')}/auth/profile`;
       const token = localStorage.getItem('authToken');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -123,29 +125,37 @@ export const BankProvider = ({ children }) => {
       });
       // Clear previous backend error on successful network connection
       setBackendError(null);
-
       console.log('📡 Profile response status:', res.status);
+      console.log('📡 Profile response headers:', Array.from(res.headers.entries()));
 
-      // If not logged in, avoid noisy errors and just return
+      // If unauthorized, handle explicitly
       if (res.status === 401 || res.status === 403) {
-        console.warn('⚠️  Profile fetch failed with status:', res.status);
+        console.warn('⚠️  Profile fetch unauthorized:', res.status);
         setIsAuthenticated(false);
         setCurrentUser(null);
         return false;
       }
 
+      // If not OK, read body (JSON or text) and log it for debugging
       if (!res.ok) {
-        console.error('❌ Profile fetch failed with status:', res.status);
+        let bodyPreview = '';
+        try {
+          const ct = res.headers.get('content-type') || '';
+          bodyPreview = ct.includes('application/json') ? JSON.stringify(await res.json()) : await res.text();
+        } catch (e) {
+          bodyPreview = `<<failed to read body: ${e.message}>>`;
+        }
+        console.error('❌ Profile fetch failed:', res.status, bodyPreview.slice ? bodyPreview.slice(0, 1000) : bodyPreview);
         setIsAuthenticated(false);
         setCurrentUser(null);
         return false;
       }
 
-      // Verify response is JSON
-      const contentType = res.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
-        const text = await res.text();
-        console.error('❌ Non-JSON response:', text.substring(0, 200));
+      // Verify response is JSON and parse it; if HTML or text, log the raw body
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const raw = await res.text();
+        console.error('❌ Profile returned non-JSON response (first 200 chars):', raw.substring ? raw.substring(0, 200) : raw);
         setIsAuthenticated(false);
         setCurrentUser(null);
         return false;
