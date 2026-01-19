@@ -2,10 +2,10 @@
   "version": 2,
   "builds": [
     {
-      "src": "bank-app-deploy/package.json",
+      "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "bank-app-deploy/build"
+        "distDir": "frontend/build"
       }
     },
     {
@@ -19,8 +19,8 @@
       "dest": "backend/api/index.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "bank-app-deploy/build/index.html"
+      "src": "(/.*)?",
+      "dest": "frontend/build/index.html"
     }
   ]
 }
