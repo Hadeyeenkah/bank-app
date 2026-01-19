@@ -26,30 +26,30 @@ if (process.env.NODE_ENV === 'development') {
 // API Endpoints
 export const API_ENDPOINTS = {
   // Auth
-  LOGIN: `${API_URL}/api/auth/login`,
-  SIGNUP: `${API_URL}/api/auth/signup`,
-  LOGOUT: `${API_URL}/api/auth/logout`,
-  VERIFY_OTP: `${API_URL}/api/auth/verify-otp`,
-  RESET_PASSWORD: `${API_URL}/api/auth/reset-password`,
+  LOGIN: `${API_URL}/auth/login`,
+  SIGNUP: `${API_URL}/auth/signup`,
+  LOGOUT: `${API_URL}/auth/logout`,
+  VERIFY_OTP: `${API_URL}/auth/verify-otp`,
+  RESET_PASSWORD: `${API_URL}/auth/reset-password`,
   
   // Transactions
-  TRANSACTIONS: `${API_URL}/api/transactions`,
-  TRANSACTION_DETAIL: (id) => `${API_URL}/api/transactions/${id}`,
+  TRANSACTIONS: `${API_URL}/transactions`,
+  TRANSACTION_DETAIL: (id) => `${API_URL}/transactions/${id}`,
   
   // Transfers
-  TRANSFERS: `${API_URL}/api/transfers`,
+  TRANSFERS: `${API_URL}/transfers`,
   
   // Bills
-  BILLS: `${API_URL}/api/bills`,
+  BILLS: `${API_URL}/bills`,
   
   // Accounts
-  ACCOUNTS: `${API_URL}/api/accounts`,
+  ACCOUNTS: `${API_URL}/accounts`,
   
   // Notifications
-  NOTIFICATIONS: `${API_URL}/api/notifications`,
+  NOTIFICATIONS: `${API_URL}/notifications`,
   
   // Health check
-  HEALTH: `${API_URL}/api/health`,
+  HEALTH: `${API_URL}/health`,
 };
 
 export default API_URL;
