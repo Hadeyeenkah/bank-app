@@ -3,13 +3,21 @@
 
 // Determine API URL based on environment
 const getApiUrl = () => {
-  // For Vercel monorepo: use relative path in production
-  if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || '';
+  // Prefer explicit production base `REACT_APP_API_BASE` or `REACT_APP_API_URL`.
+  // If provided, normalize and ensure it ends with `/api` so frontend calls correct routes.
+  const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL;
+  if (envBase) {
+    const normalized = envBase.replace(/\/++$/, '');
+    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
   }
-  // Development: allow override or use localhost
-  // Default to relative `/api` so CRA dev server can proxy requests to backend
-  return process.env.REACT_APP_API_URL || '/api';
+
+  // If no env var provided:
+  // - In production we default to empty (assume same-origin with deployed API under /api)
+  // - In development default to relative `/api` so CRA dev server can proxy
+  if (process.env.NODE_ENV === 'production') {
+    return '';
+  }
+  return '/api';
 };
 
 export const API_URL = getApiUrl();
