@@ -27,52 +27,12 @@ if (process.env.NODE_ENV === 'production') {
 // Security headers
 app.use(helmet());
 
-// CORS Configuration (match server.js)
-const defaultDevOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3002',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-];
-
-const productionOrigins = [
-  'https://aurorabank.onrender.com',
-  // Vercel deployments (frontend and backend can be on same domain or different)
-  'https://aurorabank-6c8448dyx-auroras-projects-c3211c64.vercel.app',
-  'https://aurora-bank-backend.vercel.app',
-  'https://*.vercel.app', // Match all Vercel preview/production deployments
-];
-
-const envOrigins = (process.env.CLIENT_ORIGIN || process.env.CLIENT_ORIGINS || '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-
-const allowedOrigins = Array.from(new Set([...defaultDevOrigins, ...productionOrigins, ...envOrigins]));
-
-const isLocalOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
-const isRenderOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin);
-const isNetlifyOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(origin);
-const isFirebaseOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.(web\.app|firebaseapp\.com)$/i.test(origin);
-const isVercelOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
-
+// CORS: restrict origins to frontend and local dev as requested
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (isLocalOrigin(origin) || isRenderOrigin(origin) || isNetlifyOrigin(origin) || isFirebaseOrigin(origin) || isVercelOrigin(origin) || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error(`CORS policy: Origin ${origin} not allowed`));
-  },
+  origin: ['https://aurorabank-beryl.vercel.app', 'http://localhost:3000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie'],
-  maxAge: 86400,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200,
 };
 
