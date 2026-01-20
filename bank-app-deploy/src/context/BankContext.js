@@ -59,7 +59,7 @@ export const BankProvider = ({ children }) => {
   // Start with configured API URL (from frontend/src/config.js) or env override
   const getApiBase = () => {
     const envBase = process.env.REACT_APP_API_BASE || API_URL || '/api';
-    return envBase.endsWith('/api') ? envBase : `${envBase.replace(/\/+$/, '')}/api`;
+     return process.env.REACT_APP_API_BASE || 'https://aurora-wine-pi.vercel.app/api';
   };
 
   const [apiBase, setApiBase] = useState(getApiBase());
@@ -83,7 +83,7 @@ export const BankProvider = ({ children }) => {
 
     for (const candidate of candidates) {
       // normalize candidate to ensure it doesn't double `/api`
-      const normalized = candidate.endsWith('/api') ? candidate : `${candidate.replace(/\/+$/, '')}/api`;
+        const normalized = candidate.endsWith('/api') ? candidate : `${candidate}/api`;
       // try common health endpoints
       const healthUrls = [
         `${normalized}/health`,
