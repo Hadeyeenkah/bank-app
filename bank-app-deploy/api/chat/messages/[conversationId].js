@@ -1,23 +1,25 @@
-const withCors = require('../../_lib/cors');
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-module.exports = withCors(async (req, res) => {
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   const convId = req.query?.conversationId || (req.url && new URL(req.url, 'http://localhost').searchParams.get('conversationId')) || req.url.split('/').pop();
 
-  if (req.method === 'GET') {
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ messages: [{ id: 'm1', conversationId: convId, text: 'Hello from dev chat', createdAt: new Date().toISOString() }] }));
-    return;
-  }
+  try {
+    if (req.method === 'GET') {
+      return res.status(200).json({ messages: [{ id: 'm1', conversationId: convId, text: 'Hello from dev chat', createdAt: new Date().toISOString() }] });
+    }
 
-  if (req.method === 'POST') {
-    const body = req.body || {};
-    const msg = { id: `m-${Date.now()}`, conversationId: convId, text: body.message || body.text, createdAt: new Date().toISOString() };
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ message: 'Sent (dev)', msg }));
-    return;
-  }
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      const msg = { id: `m-${Date.now()}`, conversationId: convId, text: body.message || body.text, createdAt: new Date().toISOString() };
+      return res.status(200).json({ message: 'Sent (dev)', msg });
+    }
 
-  res.statusCode = 405;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ message: 'Method not allowed' }));
-});
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}

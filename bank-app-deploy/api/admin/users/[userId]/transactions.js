@@ -1,25 +1,26 @@
-const withCors = require('../../../_lib/cors');
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-module.exports = withCors(async (req, res) => {
-  const userId = req.query?.userId || (req.url && new URL(req.url, 'http://localhost').searchParams.get('userId'));
-
-  if (req.method === 'POST') {
-    const body = req.body || {};
-    // Echo created transaction
-    const tx = { id: `tx-${Date.now()}`, ...body };
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ transaction: tx }));
-    return;
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  if (req.method === 'GET') {
-    // Return simple list
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ transactions: [] }));
-    return;
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  res.statusCode = 405;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ message: 'Method not allowed' }));
-});
+  try {
+    // TODO: Add real transaction logic
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      const tx = { id: `tx-${Date.now()}`, ...body };
+      return res.status(200).json({ transaction: tx });
+    }
+
+    return res.status(200).json({ transactions: [] });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}

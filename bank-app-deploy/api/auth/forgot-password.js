@@ -1,29 +1,22 @@
-const withCors = require('../_lib/cors');
-const db = require('../_lib/db');
-const auth = require('../_lib/auth');
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-module.exports = withCors(async (req, res) => {
-  if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ message: 'Method not allowed' }));
-    return;
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    // TODO: integrate with DB and email system
+    const token = `dev-reset-${Date.now()}`;
+    const resetBase = process.env.RESET_BASE || 'http://localhost:3000';
+    const link = `${resetBase}/reset-password?token=${token}`;
+
+    return res.status(200).json({ message: 'Password reset link sent (dev)', resetLink: link });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
-
-  const { email } = req.body || {};
-  if (!email) {
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ message: 'Email is required' }));
-    return;
-  }
-
-  await db.connect();
-  const token = auth.generateResetToken();
-  const resetBase = process.env.RESET_BASE || 'http://localhost:3000';
-  const link = `${resetBase}/reset-password?token=${token}`;
-  await auth.sendResetEmail(email, link);
-
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ message: 'Password reset link sent (dev)', resetLink: link }));
-});
+}

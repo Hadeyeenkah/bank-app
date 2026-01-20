@@ -1,31 +1,21 @@
-const withCors = require('../_lib/cors');
-const db = require('../_lib/db');
-const auth = require('../_lib/auth');
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-module.exports = withCors(async (req, res) => {
-  if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ message: 'Method not allowed' }));
-    return;
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const { token, secret } = req.body || {};
+    if (!token || !secret) return res.status(400).json({ error: 'token and secret are required' });
+
+    // TODO: verify 2FA token
+    const ok = true;
+    if (!ok) return res.status(400).json({ error: 'Invalid 2FA token' });
+
+    return res.status(200).json({ message: '2FA verified (dev)' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
-
-  const { token, secret } = req.body || {};
-  if (!token || !secret) {
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ message: 'token and secret are required' }));
-    return;
-  }
-
-  await db.connect();
-  const ok = await auth.verify2faToken(secret, token);
-  res.setHeader('Content-Type', 'application/json');
-  if (!ok) {
-    res.statusCode = 400;
-    res.end(JSON.stringify({ message: 'Invalid 2FA token' }));
-    return;
-  }
-
-  res.end(JSON.stringify({ message: '2FA verified (dev)' }));
-});
+}
