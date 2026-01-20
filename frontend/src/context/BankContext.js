@@ -58,10 +58,7 @@ export const BankProvider = ({ children }) => {
   // Backend: helper to call API with cookies
   // Start with configured API URL (from frontend/src/config.js) or env override
   const getApiBase = () => {
-    // Prefer explicit environment variables, then centralized config, then a hardcoded production backend
-    const DEFAULT_API = 'https://aurora-wine-pi.vercel.app/api';
-    const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || API_URL || DEFAULT_API || '/api';
-    return envBase.endsWith('/api') ? envBase : `${envBase.replace(/\/\/+$/, '')}/api`;
+    return process.env.REACT_APP_API_BASE || 'https://aurora-wine-pi.vercel.app/api';
   };
 
   const [apiBase, setApiBase] = useState(getApiBase());
@@ -113,7 +110,7 @@ export const BankProvider = ({ children }) => {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const profileUrl = `${apiBase.replace(/\/\/+$/, '')}/auth/profile`;
+      const profileUrl = `${apiBase}/auth/profile`;
       const token = localStorage.getItem('authToken');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
