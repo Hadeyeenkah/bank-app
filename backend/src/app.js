@@ -27,17 +27,20 @@ if (process.env.NODE_ENV === 'production') {
 // Security headers
 app.use(helmet());
 
-// CORS: restrict origins to frontend and local dev as requested
-const corsOptions = {
-  origin: ['https://aurorabank-beryl.vercel.app', 'http://localhost:3000'],
+// CORS: allow frontend and local dev origins (configured per request)
+app.use(cors({
+  origin: [
+    'https://aurorabank-beryl.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 200,
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+  preflightContinue: false
+}));
 
 // Parsers
 app.use(express.json({ limit: '10mb' }));
