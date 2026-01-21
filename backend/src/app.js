@@ -89,6 +89,14 @@ app.get("/api", (req, res) => {
   });
 });
 
+// Also expose non-/api root for compatibility with older clients
+app.get("/auth", (req, res) => {
+  res.json({
+    status: "success",
+    message: "Aurora Bank Backend API (auth root)",
+  });
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
@@ -97,6 +105,15 @@ app.use("/api/bills", billRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/chat", chatRoutes);
+
+// Also mount routes without /api prefix to support deployed frontend requests
+app.use("/auth", authRoutes);
+app.use("/transactions", transactionRoutes);
+app.use("/transfers", transferRoutes);
+app.use("/bills", billRoutes);
+app.use("/notifications", notificationRoutes);
+app.use("/admin", adminRoutes);
+app.use("/chat", chatRoutes);
 
 // 404 handler for undefined routes
 app.use((req, res) => {
