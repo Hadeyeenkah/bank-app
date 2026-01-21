@@ -31,10 +31,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Trust proxy for production environments (Render, Heroku, Netlify, etc.)
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
+// Trust proxy (needed on Vercel and other proxy environments)
+app.set('trust proxy', 1);
 
 // Security headers
 app.use(helmet());
