@@ -7,8 +7,14 @@ const getApiUrl = () => {
   // If provided, normalize and ensure it ends with `/api` so frontend calls correct routes.
   const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL;
   if (envBase) {
-    const normalized = envBase.replace(/\/++$/, '');
-    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+    const normalized = envBase.replace(/\/+$/, '');
+    // Fall back to correct regex if above was malformed
+    // (some environments or minifiers may corrupt repeated plus signs)
+    // Ensure we remove trailing slashes
+    // NOTE: keep simple and compatible: /\/+$/
+    const normalizedFixed = normalized.replace(/\/+$/, '');
+    const finalBase = normalizedFixed;
+    return finalBase.endsWith('/api') ? finalBase : `${finalBase}/api`;
   }
 
   // If no env var provided:

@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
+    "node": "20.x"
+  },
+  "engines": {
     "node": "24.x"
   },
   "proxy": "http://localhost:5001",

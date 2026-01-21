@@ -1,3 +1,7 @@
+// Root-level Vercel function to expose the backend Express app
+const handler = require('../backend/api/index');
+
+module.exports = handler;
 // Vercel Serverless entrypoint: reuse the existing Express app
 const app = require('../backend/src/app');
 

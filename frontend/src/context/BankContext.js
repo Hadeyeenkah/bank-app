@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import API_URL from '../config';
+// import config if needed in future
 
 const BankContext = createContext();
 
@@ -17,7 +17,7 @@ export const BankProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   // Network/backend availability
-  const [_backendError, setBackendError] = useState(null);
+  const [, setBackendError] = useState(null);
   
   // All users data
   const [users, setUsers] = useState([
