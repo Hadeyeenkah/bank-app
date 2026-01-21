@@ -19,6 +19,18 @@ const { seedDemoUsers } = require(path.join(__dirname, "utils", "seedDemoUsers")
 
 const app = express();
 
+// Custom CORS headers for Vercel frontend and to handle preflight
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://aurorabank-beryl.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Trust proxy for production environments (Render, Heroku, Netlify, etc.)
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
@@ -78,13 +90,13 @@ app.get("/api", (req, res) => {
 });
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/transactions", transactionRoutes);
-app.use("/api/transfers", transferRoutes);
-app.use("/api/bills", billRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/auth", authRoutes);
+app.use("/transactions", transactionRoutes);
+app.use("/transfers", transferRoutes);
+app.use("/bills", billRoutes);
+app.use("/notifications", notificationRoutes);
+app.use("/admin", adminRoutes);
+app.use("/chat", chatRoutes);
 
 // 404 handler for undefined routes
 app.use((req, res) => {
