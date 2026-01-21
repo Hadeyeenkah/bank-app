@@ -90,13 +90,13 @@ app.get("/api", (req, res) => {
 });
 
 // Routes
-app.use("/auth", authRoutes);
-app.use("/transactions", transactionRoutes);
-app.use("/transfers", transferRoutes);
-app.use("/bills", billRoutes);
-app.use("/notifications", notificationRoutes);
-app.use("/admin", adminRoutes);
-app.use("/chat", chatRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/transfers", transferRoutes);
+app.use("/api/bills", billRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/chat", chatRoutes);
 
 // 404 handler for undefined routes
 app.use((req, res) => {
