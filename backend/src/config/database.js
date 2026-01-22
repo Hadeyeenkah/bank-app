@@ -12,8 +12,11 @@ exports.connectDB = async () => {
   if (isConnected) return true;
 
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/securebank';
-  const maxRetries = Number(process.env.DB_CONNECT_MAX_RETRIES || 5);
-  const retryDelayMs = Number(process.env.DB_CONNECT_RETRY_MS || 2000);
+  // In production (serverless) avoid long blocking retries which can cause function timeouts
+  const defaultRetries = process.env.NODE_ENV === 'production' ? 1 : 5;
+  const maxRetries = Number(process.env.DB_CONNECT_MAX_RETRIES || defaultRetries);
+  const defaultRetryDelay = process.env.NODE_ENV === 'production' ? 500 : 2000;
+  const retryDelayMs = Number(process.env.DB_CONNECT_RETRY_MS || defaultRetryDelay);
 
   // Helper: mask credentials for logging and extract host/db
   const maskUriForLog = (raw) => {
@@ -33,7 +36,8 @@ exports.connectDB = async () => {
     try {
       await mongoose.connect(uri, {
         autoIndex: true,
-        serverSelectionTimeoutMS: 10000,
+        // keep server selection timeout short in serverless environments
+        serverSelectionTimeoutMS: Number(process.env.DB_SERVER_SELECTION_TIMEOUT_MS || 3000),
       });
       isConnected = true;
       console.log(`✅ MongoDB connected (attempt ${attempt}/${maxRetries})`);
