@@ -19,15 +19,24 @@ const { seedDemoUsers } = require(path.join(__dirname, "utils", "seedDemoUsers")
 
 const app = express();
 
-// Custom CORS headers for Vercel frontend and to handle preflight
+// Dynamic CORS handling: read allowed origins from env or fallbacks
+const rawOrigins = process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN || '';
+const allowedOrigins = rawOrigins.split(',').map(s => s.trim()).filter(Boolean);
+// sensible defaults to avoid accidentally blocking common dev hosts
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push('https://aurorabank-beryl.vercel.app', 'http://localhost:3000', 'http://localhost:5173');
+}
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://aurorabank-beryl.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
   }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
 
@@ -39,11 +48,12 @@ app.use(helmet());
 
 // CORS: allow frontend and local dev origins (configured per request)
 app.use(cors({
-  origin: [
-    'https://aurorabank-beryl.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:5173'
-  ],
+  origin: (origin, cb) => {
+    // allow requests with no origin (like mobile apps, curl)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('CORS not allowed'), false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -127,22 +137,28 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ status: 'error', message: err.message || 'Internal server error' });
 });
 
-// Connect DB for serverless / function invocations
-// SECURITY: Only seed demo users in development mode
-(async () => {
+// Lazy DB connection middleware for serverless environments
+// Avoid connecting during module load to prevent cold-start timeouts.
+app.use(async (req, res, next) => {
+  // Allow quick responses for health and root without DB
+  if (req.path === '/api/health' || req.path === '/api' || req.path === '/auth') return next();
+
   try {
-    const connected = await connectDB();
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-    const shouldSeedDemo = isDevelopment && process.env.DEMO_SEED === 'true';
-    
-    if (connected && shouldSeedDemo) {
-      console.warn('⚠️  DEMO MODE: Seeding demo users (development only)');
-      await seedDemoUsers();
+    if (!isDBConnected()) {
+      const connected = await connectDB();
+      const isDevelopment = process.env.NODE_ENV !== 'production';
+      const shouldSeedDemo = isDevelopment && process.env.DEMO_SEED === 'true';
+      if (connected && shouldSeedDemo) {
+        console.warn('⚠️  DEMO MODE: Seeding demo users (development only)');
+        await seedDemoUsers();
+      }
+      if (connected) console.log('🗄️  Database connected (lazy middleware)');
     }
-    if (connected) console.log('🗄️  Database connected (app.js)');
+    return next();
   } catch (e) {
-    console.warn('⚠️  DB connect from app.js failed:', e.message || e);
+    console.warn('⚠️  DB connect (lazy) failed:', e.message || e);
+    return next();
   }
-})();
+});
 
 module.exports = app;

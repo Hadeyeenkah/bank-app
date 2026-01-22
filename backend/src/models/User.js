@@ -152,11 +152,11 @@ const UserSchema = new mongoose.Schema(
 );
 
 // Pre-save hook to generate account number
-UserSchema.pre('save', async function(next) {
+UserSchema.pre('save', async function() {
   if (!this.accountNumber) {
     let accountNumber;
     let isUnique = false;
-    
+
     // Keep generating until we get a unique number
     while (!isUnique) {
       accountNumber = generateAccountNumber();
@@ -165,10 +165,9 @@ UserSchema.pre('save', async function(next) {
         isUnique = true;
       }
     }
-    
+
     this.accountNumber = accountNumber;
   }
-  next();
 });
 
 module.exports = mongoose.model('User', UserSchema);
