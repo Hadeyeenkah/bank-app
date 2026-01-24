@@ -452,23 +452,35 @@ function Dashboard() {
                     {notifications.length === 0 && (
                       <div className="p-4 text-sm text-slate-400">No new notifications</div>
                     )}
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className="p-4 hover:bg-white/5 transition cursor-pointer"
-                        onClick={() => {
-                          setShowNotifications(false);
-                          const targetFilter = n.source === 'admin' ? 'admin' : (n.type || 'all');
-                          navigate('/notifications', {
-                            state: { filter: targetFilter, showOnlyId: n.id, messageId: n.messageId }
-                          });
-                        }}
-                      >
-                        <div className="text-sm font-semibold text-white">{n.title}</div>
-                        <div className="text-xs text-slate-400 mt-1">{n.detail}</div>
-                        <div className="text-[11px] text-slate-500 mt-1">{formatTime(n.time)}</div>
-                      </div>
-                    ))}
+                    {notifications.map((n) => {
+                      // Determine notification color
+                      let notificationBg = "bg-slate-800";
+                      let notificationBorder = "border-white/10";
+                      if (n.title?.toLowerCase().includes("on hold") || n.detail?.toLowerCase().includes("on hold")) {
+                        notificationBg = "bg-yellow-400/20";
+                        notificationBorder = "border-yellow-400/50";
+                      } else if (n.title?.toLowerCase().includes("blocked by") || n.detail?.toLowerCase().includes("blocked by")) {
+                        notificationBg = "bg-red-500/20";
+                        notificationBorder = "border-red-500/50";
+                      }
+                      return (
+                        <div
+                          key={n.id}
+                          className={`p-4 hover:bg-white/5 transition cursor-pointer rounded-lg mb-2 border ${notificationBg} ${notificationBorder}`}
+                          onClick={() => {
+                            setShowNotifications(false);
+                            const targetFilter = n.source === 'admin' ? 'admin' : (n.type || 'all');
+                            navigate('/notifications', {
+                              state: { filter: targetFilter, showOnlyId: n.id, messageId: n.messageId }
+                            });
+                          }}
+                        >
+                          <div className="text-sm font-semibold text-white">{n.title}</div>
+                          <div className="text-xs text-slate-400 mt-1">{n.detail}</div>
+                          <div className="text-[11px] text-slate-500 mt-1">{formatTime(n.time)}</div>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="border-t border-white/10 px-4 py-3 text-right">
                     <button
